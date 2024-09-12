@@ -27,6 +27,7 @@ namespace GookbabNormalize
             }
 
             // 2. DLL 주입
+            /*
             string dllPath = @"C:\temp\hookdll.dll";
             bool success = DllInjector.Inject(process.Id, dllPath);
             if (success)
@@ -37,6 +38,7 @@ namespace GookbabNormalize
             {
                 Console.WriteLine("DLL Injection 실패...");
             }
+            */
 
             // 3. 해당 프로세스의 포트 찾기
             int port = PortFinder.FindPortForProcess(process.Id);
@@ -51,6 +53,7 @@ namespace GookbabNormalize
 
 
             // 4. DLL 인젝션 여부 확인
+            /*
             bool isInjected = InjectionChecker.IsDLLInjected(process, "hookdll.dll");
 
             if (isInjected)
@@ -63,6 +66,7 @@ namespace GookbabNormalize
             }
 
             System.Threading.Thread.Sleep(10000);  // 10초 대기
+            */
 
             // 5. 메모리 읽기
             try
