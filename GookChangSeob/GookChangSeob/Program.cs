@@ -332,7 +332,7 @@ namespace GookbabNormalize
                 Array.Copy(data, currentIndex, packet, 0, packetLength + 3); // 전체 패킷을 복사
 
                 // 새로운 스레드에서 복호화 처리
-                Thread decryptThread = new Thread(() => ProcessDecryptedPacket(packet));
+                Thread decryptThread = new Thread(() => ProcessDecryptedPacket(packet,OutputStream));
                 //Thread decryptThread = new Thread(() => ProcessDecryptedPacket(packet,currentIndex,packetLength + 3));
                 decryptThread.Start();
                 ModifyPacket(packet,packetLength+3,OutputStream);
@@ -344,14 +344,22 @@ namespace GookbabNormalize
             }
         }
 
-        private static void ProcessDecryptedPacket(byte[] packet)
+        private static void ProcessDecryptedPacket(byte[] packet,NetworkStream OutputStream)
         {
             // 복호화 작업 수행
             var decryptedPacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
             //var decryptedPacket = MemoryClass.PacketDecryptor.DecryptPacket(packet,startIndex,endIndex);
 
             // 복호화된 패킷 출력
-            Console.WriteLine("Decrypted Packet: " + BitConverter.ToString(decryptedPacket));
+            if (OutputStream == clientStream)
+            {
+                Console.WriteLine("Server Packet: " + BitConverter.ToString(decryptedPacket));
+            }
+            else
+            {
+                Console.WriteLine("Client Packet: " + BitConverter.ToString(decryptedPacket));
+            }
+            
         }
     }
     // winbaram.exe 실행 클래스
