@@ -185,7 +185,7 @@ namespace GookbabNormalize
                         packet[8] = 0x09;
                         packet[9] = 0x29;
                     }
-                    else if (packet[1] == 0x00 && packet[2] == 0x26) //처음부터 패킷 분할해서 받을경우
+                    else if (packet[1] == 0x00 && packet[2] >= 0x1E && packet[2] <= 0x28) //처음부터 패킷 분할해서 받을경우
                     {
                         packet[4] = 0x01;
                         packet[5] = 0x00;

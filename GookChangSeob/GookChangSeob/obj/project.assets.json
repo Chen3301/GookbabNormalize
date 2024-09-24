@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\ssh\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
+      "projectUniqueName": "C:\\Users\\ssh\\gookbab\\GookbabNormalize-2\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
       "projectName": "GookChangSeob",
-      "projectPath": "C:\\Users\\ssh\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
+      "projectPath": "C:\\Users\\ssh\\gookbab\\GookbabNormalize-2\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
       "packagesPath": "C:\\Users\\ssh\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\ssh\\GookChangSeob\\GookChangSeob\\obj\\",
+      "outputPath": "C:\\Users\\ssh\\gookbab\\GookbabNormalize-2\\GookChangSeob\\GookChangSeob\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\ssh\\AppData\\Roaming\\NuGet\\NuGet.Config",

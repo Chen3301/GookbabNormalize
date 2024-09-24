@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\Users\\ssh\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj": {}
+    "C:\\Users\\ssh\\gookbab\\GookbabNormalize-2\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj": {}
   },
   "projects": {
-    "c:\\Users\\ssh\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj": {
+    "C:\\Users\\ssh\\gookbab\\GookbabNormalize-2\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\ssh\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
+        "projectUniqueName": "C:\\Users\\ssh\\gookbab\\GookbabNormalize-2\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
         "projectName": "GookChangSeob",
-        "projectPath": "c:\\Users\\ssh\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
+        "projectPath": "C:\\Users\\ssh\\gookbab\\GookbabNormalize-2\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
         "packagesPath": "C:\\Users\\ssh\\.nuget\\packages\\",
-        "outputPath": "c:\\Users\\ssh\\GookChangSeob\\GookChangSeob\\obj\\",
+        "outputPath": "C:\\Users\\ssh\\gookbab\\GookbabNormalize-2\\GookChangSeob\\GookChangSeob\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\ssh\\AppData\\Roaming\\NuGet\\NuGet.Config",
