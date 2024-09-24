@@ -1,0 +1,14 @@
+c:\Users\ssh\GookChangSeob\GookChangSeob\bin\Debug\net8.0\GookChangSeob.exe
+c:\Users\ssh\GookChangSeob\GookChangSeob\bin\Debug\net8.0\GookChangSeob.deps.json
+c:\Users\ssh\GookChangSeob\GookChangSeob\bin\Debug\net8.0\GookChangSeob.runtimeconfig.json
+c:\Users\ssh\GookChangSeob\GookChangSeob\bin\Debug\net8.0\GookChangSeob.dll
+c:\Users\ssh\GookChangSeob\GookChangSeob\bin\Debug\net8.0\GookChangSeob.pdb
+c:\Users\ssh\GookChangSeob\GookChangSeob\obj\Debug\net8.0\GookChangSeob.GeneratedMSBuildEditorConfig.editorconfig
+c:\Users\ssh\GookChangSeob\GookChangSeob\obj\Debug\net8.0\GookChangSeob.AssemblyInfoInputs.cache
+c:\Users\ssh\GookChangSeob\GookChangSeob\obj\Debug\net8.0\GookChangSeob.AssemblyInfo.cs
+c:\Users\ssh\GookChangSeob\GookChangSeob\obj\Debug\net8.0\GookChangSeob.csproj.CoreCompileInputs.cache
+c:\Users\ssh\GookChangSeob\GookChangSeob\obj\Debug\net8.0\GookChangSeob.dll
+c:\Users\ssh\GookChangSeob\GookChangSeob\obj\Debug\net8.0\refint\GookChangSeob.dll
+c:\Users\ssh\GookChangSeob\GookChangSeob\obj\Debug\net8.0\GookChangSeob.pdb
+c:\Users\ssh\GookChangSeob\GookChangSeob\obj\Debug\net8.0\GookChangSeob.genruntimeconfig.cache
+c:\Users\ssh\GookChangSeob\GookChangSeob\obj\Debug\net8.0\ref\GookChangSeob.dll
