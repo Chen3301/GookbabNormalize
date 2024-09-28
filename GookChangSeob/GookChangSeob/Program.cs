@@ -9,7 +9,6 @@ using System.Xml.Linq;
 
 namespace GookbabNormalize
 {
-    
     class Program
     {
         static TcpClient client = null!;
@@ -17,11 +16,14 @@ namespace GookbabNormalize
         static NetworkStream clientStream = null!;
         static NetworkStream serverStream = null!;
         static int portchange = 0;
+        //static int InfoShutdown = 0;
         static bool dispelcheck = false;
-        //static bool NPCshutdown = false;
-        //static bool Effectmodify = false;
+        static bool simtucheck = false;
+        //static byte clientpacketnum = 0;
         static byte[] mytargetnum = new byte[4]; //내 타겟넘버 저장
         static byte[] dispelarray = new byte[14]; //무력화 이미지패킷 저장
+        //static byte[] ChaPacketarray = new byte[76]; //화면내 캐릭터정보 패킷 저장
+        private static ManualResetEvent pauseClientToServerThread = new ManualResetEvent(true); // true: 시작 시 실행 상태
         public static void Main(string[] args)
         {
             // 프록시 서버 시작
@@ -96,10 +98,17 @@ namespace GookbabNormalize
             clientSave.Close();
             serverSave.Close();
         }
-            // 네트워크 스트림에서 데이터를 주고받을 때의 로직
-        private static void ForwardTraffic(NetworkStream inputStream, NetworkStream outputStream, string direction)
+        private static void ClientToServerThreadMethod() //클라이언트 패킷 보낼때 쓰레드 일시정지
         {
-            byte[] buffer = new byte[16384]; // 버퍼 크기
+            while (true)
+            {
+                pauseClientToServerThread.WaitOne(); // 일시정지 상태가 해제될 때까지 대기
+                // Client to Server 데이터 처리 로직
+            }
+        }
+        private static void ForwardTraffic(NetworkStream inputStream, NetworkStream outputStream, string direction) // 네트워크 스트림에서 데이터를 주고받을 때의 로직
+        {
+            byte[] buffer = new byte[60000]; // 버퍼 크기
             int bytesRead;
             try
             {
@@ -154,7 +163,7 @@ namespace GookbabNormalize
                 Console.WriteLine($"Unexpected error during {direction} transmission: {ex.Message}");
             }
         }
-        private static void ModifyPacket(byte[] packet, int length, NetworkStream outputStream)
+        private static async void ModifyPacket(byte[] packet, int length, NetworkStream outputStream)
         {
             if (outputStream == clientStream)
             {
@@ -262,9 +271,79 @@ namespace GookbabNormalize
                     }
                 }
                 */
+                else if (length > 0 && packet[3] == 0x33) //화면내 캐릭터정보
+                {
+                    if (simtucheck == true)
+                    {
+                        var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                        if (decryptedpacket[60] == 00)
+                        {
+                            packet[60] ^= 0x01;
+                            if (decryptedpacket[16] == 0x02)
+                            {
+                                packet[16] ^= 0x05 ^ 0x02;
+                            }
+                        }
+                        /*
+                        if (packet[1] == 0x00 && packet[2] > 0x3D)
+                        {
+                            if (decryptedpacket[60] == 00)
+                            {
+                                packet[60] ^= 0x01;
+                            }
+                        }
+                        else // 화면내 캐릭터의 닉네임을 받아오지 못하면 캐릭터 상세정보를 받아옴
+                        {
+                            // clientToServerThread 일시정지
+                            //pauseClientToServerThread.Reset();
+                            byte[] InfoCall = new byte[11];
+                            Array.Copy(decryptedpacket, 0, ChaPacketarray, 0, 64); // 전체 패킷을 복사
+                            clientpacketnum++;
+                            MemoryClass.ModifyMemoryValue(clientpacketnum);
+                            InfoCall[0] = 0xAA; InfoCall[1] = 0x00; InfoCall[2] = 0x08; InfoCall[3] = 0x43; InfoCall[4] = (byte)(clientpacketnum - 1); InfoCall[5] = 0x01; InfoCall[6] = decryptedpacket[10]; InfoCall[7] = decryptedpacket[11]; InfoCall[8] = decryptedpacket[12]; InfoCall[9] = decryptedpacket[13]; InfoCall[10] = 0x00;
+                            var InfoCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(InfoCall);
+                            InfoShutdown++;
+                            serverStream.Write(InfoCallEncrypt, 0, 11);
+                            serverStream.Flush();
+                            // clientToServerThread 일시정지 해제
+                            //pauseClientToServerThread.Set();
+                        }
+                        */
+                    }
+
+                }
+                /*
+                else if (length > 0 && packet[3] == 0x34) //캐릭터 상세정보
+                {
+                    if (InfoShutdown > 0)
+                    {
+                        InfoShutdown --;
+                        packet[3] = 0xFF; //패킷차단
+                        var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                        int packetindex = 5;
+                        for (int i = 0; i < 4; i++)
+                        {
+                            packetindex += decryptedpacket[packetindex] + 1;
+                        }
+                        ChaPacketarray[16] = 0x00;
+                        ChaPacketarray[60] = 0x01;
+                        ChaPacketarray[61] = decryptedpacket[packetindex];
+                        //byte[] Getnamearray = new byte[decryptedpacket[packetindex]];
+                        for (int i = 0; i < decryptedpacket[packetindex]; i++)
+                        {
+                            ChaPacketarray[i + 62] = decryptedpacket[packetindex + i + 1];
+                        }
+                        var ChaPacketEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(ChaPacketarray);
+                        ChaPacketEncrypt[2] += decryptedpacket[packetindex];
+                        clientStream.Write(ChaPacketEncrypt, 0, (int)(64 + decryptedpacket[packetindex]));
+                        clientStream.Flush();
+                    }
+                }
+                */
             }
             else
             {
+                //clientpacketnum = (byte)(packet[4] + 1);
                 if (length > 0 && packet[3] == 0x0E)
                 {
                     /*
@@ -284,7 +363,35 @@ namespace GookbabNormalize
                         }
                     }
                     */
-                    if (packet[1] == 0x00 && packet[2] == 0x11)
+                    if (packet[1] == 0x00 && packet[2] == 0x0A)
+                    {
+                        var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                        // /심투
+                        if (decryptedpacket[6] == 0x05 && decryptedpacket[7] == 0x2F && decryptedpacket[8] == 0xBD && decryptedpacket[9] == 0xC9 && decryptedpacket[10] == 0xC5 && decryptedpacket[11] == 0xF5)
+                        {
+                            Array.Clear(packet, 0, length);
+                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[4] = decryptedpacket[4]; packet[5] = 0x00; packet[6] = 0x00; length = 7;
+                            if (simtucheck == false)
+                            { 
+                                simtucheck = true;
+                                byte[] NoticeCall = new byte[23];
+                                NoticeCall[0] = 0xAA; NoticeCall[1] = 0x00; NoticeCall[2] = 0x14; NoticeCall[3] = 0x0A; NoticeCall[4] = 0x00; NoticeCall[5] = 0x04; NoticeCall[6] = 0x00; NoticeCall[7] = 0x0F; NoticeCall[8] = 0xBD; NoticeCall[9] = 0xC9; NoticeCall[10] = 0xBE; NoticeCall[11] = 0xC8; NoticeCall[12] = 0xC5; NoticeCall[13] = 0xF5; NoticeCall[14] = 0xBF; NoticeCall[15] = 0xB5; NoticeCall[16] = 0x20; NoticeCall[17] = 0xC8; NoticeCall[18] = 0xB0; NoticeCall[19] = 0xBC; NoticeCall[20] = 0xBA; NoticeCall[21] = 0xC8; NoticeCall[22] = 0xAD;
+                                var NoticeCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(NoticeCall);
+                                clientStream.Write(NoticeCallEncrypt, 0, 23);
+                                clientStream.Flush();
+                            }
+                            else
+                            {
+                                simtucheck = false;
+                                byte[] NoticeCall = new byte[25];
+                                NoticeCall[0] = 0xAA; NoticeCall[1] = 0x00; NoticeCall[2] = 0x16; NoticeCall[3] = 0x0A; NoticeCall[4] = 0x00; NoticeCall[5] = 0x04; NoticeCall[6] = 0x00; NoticeCall[7] = 0x11; NoticeCall[8] = 0xBD; NoticeCall[9] = 0xC9; NoticeCall[10] = 0xBE; NoticeCall[11] = 0xC8; NoticeCall[12] = 0xC5; NoticeCall[13] = 0xF5; NoticeCall[14] = 0xBF; NoticeCall[15] = 0xB5; NoticeCall[16] = 0x20; NoticeCall[17] = 0xBA; NoticeCall[18] = 0xF1; NoticeCall[19] = 0xC8; NoticeCall[20] = 0xB0; NoticeCall[21] = 0xBC; NoticeCall[22] = 0xBA; NoticeCall[23] = 0xC8; NoticeCall[24] = 0xAD;
+                                var NoticeCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(NoticeCall);
+                                clientStream.Write(NoticeCallEncrypt, 0, 25);
+                                clientStream.Flush();
+                            }
+                        }
+                    }
+                    else if (packet[1] == 0x00 && packet[2] == 0x11)
                     {
                         var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
                         // /이펙트
@@ -318,9 +425,7 @@ namespace GookbabNormalize
                             clientStream.Flush();
                         }
                     }
-                    
                 }
-                
             }
         }
         private static void ProcessIncomingPackets(byte[] data, int length, NetworkStream OutputStream)
@@ -433,43 +538,42 @@ namespace GookbabNormalize
             PacketDecryptor.SetArrays(memoryDataArray1, memoryDataArray2);
             Console.WriteLine("패킷 복호화 코드가 생성되었습니다.");
         }
-        /*
-        public static byte[] EffectTarget()
+        public static void ModifyMemoryValue(byte clientpacketnum)
         {
-            var process = ProcessFinder.FindWinbaramProcess();
-            // 첫 번째 ReadProcessMemory 호출: 0x5F7CF8에서 int 값을 읽어오기
-            int baseAddress = 0x5F7CF8;
-            byte[] buffer = new byte[4]; // 4바이트 읽기
-            if (ReadProcessMemory(processHandle, new IntPtr(baseAddress), buffer, buffer.Length, out int bytesRead))
+            try
             {
-                int valueAtBaseAddress = BitConverter.ToInt32(buffer, 0);
-                Console.WriteLine($"첫 번째 값 (0x5F7CF8): 0x{valueAtBaseAddress:X}");
+                // winbaram.exe 프로세스 찾기
+                var process = ProcessFinder.FindWinbaramProcess();
 
-                // 두 번째 ReadProcessMemory 호출: 첫 번째 값에 0xF4를 더한 주소에서 int 값을 읽어오기
-                int newAddress = valueAtBaseAddress + 0xF4;
-                byte[] finalValue = new byte[4]; // 4바이트 배열로 저장
-                if (ReadProcessMemory(processHandle, new IntPtr(newAddress), finalvalue, finalvalue.Length, out bytesRead))
-                {
-                    Console.WriteLine($"두 번째 값 (0x{newAddress:X}): 0x{finalValue:X}");
-                }
-                else
-                {
-                    Console.WriteLine("두 번째 ReadProcessMemory 호출 실패");
-                }
+                // 변경할 메모리 주소 (0x5F8E90)
+                int address = 0x5F8E90;
+
+                // 단일 byte 값을 배열로 변환
+                byte[] newValue = new byte[] { clientpacketnum };
+
+                // 메모리에 값을 쓰기
+                MemoryReader.WriteMemory(process, address, newValue);
+
+                Console.WriteLine($"메모리 값이 0x{clientpacketnum:X2}로 성공적으로 변경되었습니다.");
             }
-            else
+            catch (Exception ex)
             {
-                Console.WriteLine("첫 번째 ReadProcessMemory 호출 실패");
+                Console.WriteLine($"메모리 값 변경 중 오류 발생: {ex.Message}");
             }
-
-            return finalValue;
         }
-        */
         public class ProcessFinder
         {
+            private static Process? _cachedProcess = null;
+
             public static Process FindWinbaramProcess()
             {
-                // 모든 winbaram 프로세스를 찾음
+                // 기존에 찾은 프로세스가 있고, 아직 실행 중이라면 그대로 반환
+                if (_cachedProcess != null && !_cachedProcess.HasExited)
+                {
+                    return _cachedProcess;
+                }
+
+                // 새로 winbaram 프로세스를 찾음
                 var processes = Process.GetProcessesByName("winbaram");
 
                 if (processes.Length == 0)
@@ -477,7 +581,7 @@ namespace GookbabNormalize
                     throw new Exception("winbaram.exe 프로세스를 찾을 수 없습니다.");
                 }
 
-                // 가장 최근에 실행된 프로세스를 찾음
+                // 여기서는 가장 최근에 시작된 프로세스를 찾지만, 실행 중인 프로세스가 없을 경우 예외 처리
                 var latestProcess = processes.OrderByDescending(p => p.StartTime).FirstOrDefault();
 
                 if (latestProcess == null)
@@ -485,19 +589,24 @@ namespace GookbabNormalize
                     throw new Exception("winbaram.exe 프로세스를 찾을 수 없습니다.");
                 }
 
-                return latestProcess;
+                // 찾은 프로세스를 캐시에 저장
+                _cachedProcess = latestProcess;
+                
+                return _cachedProcess;
             }
         }
         public class MemoryReader
         {
             const int PROCESS_VM_READ = 0x0010;
+            const int PROCESS_VM_WRITE = 0x0020;
+            const int PROCESS_VM_OPERATION = 0x0008;
 
             [DllImport("kernel32.dll", SetLastError = true)]
             public static extern IntPtr OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
-
             [DllImport("kernel32.dll", SetLastError = true)]
             public static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, int dwSize, out int lpNumberOfBytesRead);
-
+            [DllImport("kernel32.dll", SetLastError = true)]
+            public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, int nSize, out int lpNumberOfBytesWritten);
             [DllImport("kernel32.dll", SetLastError = true)]
             public static extern bool CloseHandle(IntPtr hObject);
 
@@ -524,6 +633,22 @@ namespace GookbabNormalize
                 CloseHandle(processHandle);
 
                 return data;
+            }
+                // 메모리 쓰기 메서드
+            public static void WriteMemory(Process process, long address, byte[] data)
+            {
+                // 메모리 쓰기 권한을 포함하여 프로세스 열기
+                IntPtr processHandle = OpenProcess(PROCESS_VM_WRITE | PROCESS_VM_OPERATION, false, process.Id);
+                if (processHandle == IntPtr.Zero)
+                    throw new Exception("Unable to open process for writing.");
+
+                if (!WriteProcessMemory(processHandle, new IntPtr(address), data, data.Length, out int bytesWritten) || bytesWritten != data.Length)
+                {
+                    CloseHandle(processHandle);
+                    throw new Exception("Error writing memory to process.");
+                }
+
+                CloseHandle(processHandle);
             }
         }
         public class PacketDecryptor
@@ -584,54 +709,3 @@ namespace GookbabNormalize
         }
     }
 }
-
-
-/*
-            public static byte[] DecryptPacket(byte[] packetData, int startIndex, int endIndex)
-            {
-                // 유효성 검사: 시작 위치와 끝 위치가 배열의 범위 내에 있는지 확인
-                if (startIndex < 0 || endIndex >= packetData.Length || startIndex > endIndex)
-                {
-                    Console.WriteLine("Invalid decryption range specified.");
-                    return packetData; // 잘못된 범위이면 원본 패킷을 그대로 반환
-                }
-
-                byte[] decryptedData = (byte[])packetData.Clone(); 
-
-                // 첫 번째 복호화 과정
-                for (int i = startIndex; i <= endIndex; i++)
-                {
-                    decryptedData[i] ^= Array2[(i - 5) % Array2.Length];
-                }
-
-                // 두 번째 복호화 과정
-                for (int i = startIndex; i <= endIndex; i++)
-                {
-                    decryptedData[i] ^= Array1[packetData[4]];
-                }
-
-                // 세 번째 복호화 과정
-                for (int i = startIndex; i <= endIndex; i++)
-                {
-                    // (i - 5) / 9가 Array1의 범위를 벗어나지 않도록 인덱스를 Array1.Length로 나눈 나머지를 사용
-                    int index = ((i - 5) / 9) % Array1.Length;
-                    decryptedData[i] ^= Array1[index];
-                }
-
-                // 네 번째 복호화 과정
-                int baseIndex = 5 + (packetData[4] * 9);  // packetData[4] 값에 따라 시작 인덱스 결정
-                int endIndex2 = baseIndex + 8;             // 9바이트 범위 (baseIndex부터 baseIndex + 8까지)
-
-                // 범위를 벗어나지 않도록 조건 확인
-                if (baseIndex < packetData.Length && endIndex2 < packetData.Length)
-                {
-                    for (int i = baseIndex; i <= endIndex2 && i < packetData.Length; i++)
-                    {
-                        decryptedData[i] ^= (byte)(Array1[packetData[4]] ^ Array1[0]);
-                    }
-                }
-
-                return decryptedData;
-            }
-
-*/
