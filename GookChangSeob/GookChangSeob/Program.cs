@@ -20,6 +20,8 @@ namespace GookbabNormalize
         static int InfoShutdown = 0;
         static bool dispelcheck = false;
         static bool simtucheck = false;
+        static bool autotal = false;
+        static byte talkey = 0;
         static byte[] mytargetnum = new byte[4]; //내 타겟넘버 저장
         static byte[] dispelarray = new byte[14]; //무력화 이미지패킷 저장
         static byte[,] ChaPacketarray = new byte[76,32]; //화면내 캐릭터정보 패킷 저장
@@ -194,7 +196,7 @@ namespace GookbabNormalize
                     }
                 }
                 */
-                if (length > 0 && packet[3] == 0x03)
+                if (length > 0 && packet[3] == 0x03) //접속용 패킷
                 {
                     if (packet[1] == 0x00 && packet[2] == 0x1b)
                     {
@@ -206,7 +208,7 @@ namespace GookbabNormalize
                         packet[8] = 0x09;
                         packet[9] = 0x29;
                     }
-                    else if (packet[1] == 0x00 && packet[2] >= 0x1E && packet[2] <= 0x28) //처음부터 패킷 분할해서 받을경우
+                    else if (packet[1] == 0x00 && packet[2] >= 0x1E && packet[2] <= 0x28) //접속용 패킷
                     {
                         packet[4] = 0x01;
                         packet[5] = 0x00;
@@ -217,7 +219,7 @@ namespace GookbabNormalize
                         portchange = 1;
                     }
                 }
-                else if (length > 0 && packet[3] == 0x05)
+                else if (length > 0 && packet[3] == 0x05) //내 타겟넘버 받아오는 용도
                 {
                     if (packet[1] == 0x00 && packet[2] == 0x0E)
                     {
@@ -229,7 +231,34 @@ namespace GookbabNormalize
                         Console.WriteLine("mytargetnum: " + BitConverter.ToString(mytargetnum));
                     }
                 }
-                else if (length > 0 && packet[3] == 0x19)
+                else if (length > 0 && packet[3] == 0x08) //절망 차단
+                {
+                    if (packet[1] == 0x00 && packet[2] == 0x17)
+                    {
+                        var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                        if (decryptedpacket[7] != 0x00)
+                        {
+                            packet[7] ^= 0x01;
+                        }
+                    }
+                    else if (packet[1] == 0x00 && packet[2] == 0x49)
+                    {
+                        var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                        if (decryptedpacket[57] != 0x00)
+                        {
+                            packet[57] ^= 0x01;
+                        }
+                    }
+                }
+                else if (length > 0 && packet[3] == 0x17) //마법슬롯 체크
+                {
+                    var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                    if (decryptedpacket[11] == 0x00)
+                    {
+                        
+                    }
+                }
+                else if (length > 0 && packet[3] == 0x19) //마법 이펙트 사운드
                 {
                     if (packet[1] == 0x00 && packet[2] == 0x14 && dispelcheck == true)
                     {
@@ -247,7 +276,7 @@ namespace GookbabNormalize
                         dispelcheck = false;
                     }
                 }
-                else if (length > 0 && packet[3] == 0x29)
+                else if (length > 0 && packet[3] == 0x29) //마법 이펙트 포탈 포함
                 {
                     if (packet[1] == 0x00 && packet[2] == 0x0B)
                     {
@@ -288,12 +317,12 @@ namespace GookbabNormalize
                     {
                         var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
                         /*
-                        if (decryptedpacket[60] == 00)
+                        if (decryptedpacket[60] == 00) //
                         {
                             packet[60] ^= 0x01;
                             if (decryptedpacket[16] == 0x02)
                             {
-                                packet[16] ^= 0x05 ^ 0x02;
+                                packet[16] ^= 0x05 ^ 0x02; // 투명을 반투명으로 변환
                             }
                         }
                         */
@@ -306,8 +335,6 @@ namespace GookbabNormalize
                         }
                         else // 화면내 캐릭터의 닉네임을 받아오지 못하면 캐릭터 상세정보를 받아옴
                         {
-                            // clientToServerThread 일시정지
-                            //pauseClientToServerThread.Reset();
                             byte[] InfoCall = new byte[11];
                             StoreRecvArray(decryptedpacket); //전체 패킷을 복사
                             //Array.Copy(decryptedpacket, 0, ChaPacketarray, 0, 64); // 전체 패킷을 복사
@@ -317,8 +344,6 @@ namespace GookbabNormalize
                             var InfoCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(InfoCall);
                             serverStream.Write(InfoCallEncrypt, 0, 11);
                             serverStream.Flush();
-                            // clientToServerThread 일시정지 해제
-                            //pauseClientToServerThread.Set();
                         }
                     }
 
@@ -446,52 +471,71 @@ namespace GookbabNormalize
                 }
             }
         }
+        private static byte[] packetBuffer = new byte[0]; // 패킷을 처리하기 위한 임시 버퍼
         private static void ProcessIncomingPackets(byte[] data, int length, NetworkStream OutputStream)
         {
+            // 기존 버퍼에 새로운 데이터를 추가
+            byte[] combinedBuffer = new byte[packetBuffer.Length + length];
+            Buffer.BlockCopy(packetBuffer, 0, combinedBuffer, 0, packetBuffer.Length);
+            Buffer.BlockCopy(data, 0, combinedBuffer, packetBuffer.Length, length);
+
             int currentIndex = 0;
 
             // 패킷 분할 및 복호화 처리
-            while (currentIndex < length)
+            while (currentIndex < combinedBuffer.Length)
             {
-                if (data[currentIndex] != 0xAA)
+                // 패킷 시작 검증 (0xAA로 시작하는지 확인)
+                if (combinedBuffer[currentIndex] != 0xAA)
                 {
-                    Console.WriteLine("No start 0xAA Packet: " + BitConverter.ToString(data));
-                    Console.WriteLine("Invalid packet start byte. Skipping...");
-                    OutputStream.Write(data, 0, length);
-                    OutputStream.Flush();
-                    break;
+                    Console.WriteLine("Invalid start byte detected. Skipping...");
+                    packetBuffer = new byte[0]; // 오류가 발생하면 버퍼를 초기화
+                    return;
                 }
 
                 // 패킷의 길이를 결정 (2번째와 3번째 바이트에서 결정)
-                int packetLength = (data[currentIndex + 1] << 8) | data[currentIndex + 2];
+                if (currentIndex + 2 >= combinedBuffer.Length)
+                {
+                    break; // 아직 패킷의 길이를 결정할 수 없으므로 대기
+                }
+
+                int packetLength = (combinedBuffer[currentIndex + 1] << 8) | combinedBuffer[currentIndex + 2];
 
                 // 실제 패킷의 끝 위치
                 int packetEndIndex = currentIndex + 3 + packetLength;
 
-                if (packetEndIndex > length || packetEndIndex <= currentIndex)
+                // 남은 데이터가 충분하지 않은 경우
+                if (packetEndIndex > combinedBuffer.Length)
                 {
-                    Console.WriteLine($"packetEndIndex : {packetEndIndex} / currentIndex : {currentIndex} / length : {length}");
-                    Console.WriteLine("Nondivide Packet: " + BitConverter.ToString(data));
-                    Console.WriteLine("Incomplete or invalid packet detected. Waiting for more data...");
-                    OutputStream.Write(data, 0, length);
-                    OutputStream.Flush();
-                    break;
+                    break; // 데이터가 충분하지 않으므로 대기
                 }
 
                 // 현재 패킷 데이터 추출
                 byte[] packet = new byte[packetLength + 3]; // 헤더 3바이트를 포함하도록 크기 증가
-                Array.Copy(data, currentIndex, packet, 0, packetLength + 3); // 전체 패킷을 복사
+                Array.Copy(combinedBuffer, currentIndex, packet, 0, packetLength + 3); // 전체 패킷을 복사
 
                 // 새로운 스레드에서 복호화 처리
-                Thread decryptThread = new Thread(() => ProcessDecryptedPacket(packet,OutputStream));
-                //Thread decryptThread = new Thread(() => ProcessDecryptedPacket(packet,currentIndex,packetLength + 3));
+                Thread decryptThread = new Thread(() => ProcessDecryptedPacket(packet, OutputStream));
                 decryptThread.Start();
-                ModifyPacket(packet,packetLength+3,OutputStream);
-                OutputStream.Write(packet, 0, packetLength + 3);
+
+                // 패킷 수정 및 전송
+                ModifyPacket(packet, packet.Length, OutputStream);
+                OutputStream.Write(packet, 0, packet.Length);
                 OutputStream.Flush();
+
                 // 다음 패킷으로 이동
                 currentIndex = packetEndIndex;
+            }
 
+            // 남은 데이터를 임시 버퍼에 저장
+            if (currentIndex < combinedBuffer.Length)
+            {
+                int remainingLength = combinedBuffer.Length - currentIndex;
+                packetBuffer = new byte[remainingLength];
+                Array.Copy(combinedBuffer, currentIndex, packetBuffer, 0, remainingLength);
+            }
+            else
+            {
+                packetBuffer = new byte[0]; // 모두 처리되었으면 버퍼 초기화
             }
         }
 
@@ -737,3 +781,54 @@ namespace GookbabNormalize
         }
     }
 }
+
+
+///////////////////////////// 기존에 쓰던 함수 /////////////////////////
+        /*
+        private static void ProcessIncomingPackets(byte[] data, int length, NetworkStream OutputStream)
+        {
+            int currentIndex = 0;
+
+            // 패킷 분할 및 복호화 처리
+            while (currentIndex < length)
+            {
+                if (data[currentIndex] != 0xAA)
+                {
+                    Console.WriteLine("No start 0xAA Packet: " + BitConverter.ToString(data));
+                    Console.WriteLine("Invalid packet start byte. Skipping...");
+                    OutputStream.Write(data, 0, length);
+                    OutputStream.Flush();
+                    break;
+                }
+
+                // 패킷의 길이를 결정 (2번째와 3번째 바이트에서 결정)
+                int packetLength = (data[currentIndex + 1] << 8) | data[currentIndex + 2];
+
+                // 실제 패킷의 끝 위치
+                int packetEndIndex = currentIndex + 3 + packetLength;
+
+                if (packetEndIndex > length || packetEndIndex <= currentIndex)
+                {
+                    Console.WriteLine($"packetEndIndex : {packetEndIndex} / currentIndex : {currentIndex} / length : {length}");
+                    Console.WriteLine("Nondivide Packet: " + BitConverter.ToString(data));
+                    Console.WriteLine("Incomplete or invalid packet detected. Waiting for more data...");
+                    OutputStream.Write(data, 0, length);
+                    OutputStream.Flush();
+                    break;
+                }
+
+                // 현재 패킷 데이터 추출
+                byte[] packet = new byte[packetLength + 3]; // 헤더 3바이트를 포함하도록 크기 증가
+                Array.Copy(data, currentIndex, packet, 0, packetLength + 3); // 전체 패킷을 복사
+
+                // 새로운 스레드에서 복호화 처리
+                Thread decryptThread = new Thread(() => ProcessDecryptedPacket(packet,OutputStream));
+                decryptThread.Start();
+                ModifyPacket(packet,packetLength+3,OutputStream);
+                OutputStream.Write(packet, 0, packetLength + 3);
+                OutputStream.Flush();
+                // 다음 패킷으로 이동
+                currentIndex = packetEndIndex;
+            }
+        }
+        */
