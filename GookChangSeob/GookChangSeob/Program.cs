@@ -219,7 +219,7 @@ namespace GookbabNormalize
                 else if (length > 0 && packet[3] == 0x17) //마법슬롯 체크
                 {
                     var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
-                    if (decryptedpacket[7] == 0xC5 && decryptedpacket[8] == 0xBB && decryptedpacket[9] == 0xB8 && decryptedpacket[10] == 0xED)
+                    if (decryptedpacket[8] == 0xC5 && decryptedpacket[9] == 0xBB && decryptedpacket[10] == 0xB8 && decryptedpacket[11] == 0xED)
                     {
                         talkey = decryptedpacket[5] ;
                     }
@@ -269,8 +269,9 @@ namespace GookbabNormalize
                                 MemoryClass.ModifyMemoryValue(clientpacketnum);
                                 byte[] TalCall = new byte[15] 
                                 { 
-                                    0xAA, 0x00, 0x0C, 0x0F, clientpacketnum, talkey, decryptedpacket[6], decryptedpacket[7], decryptedpacket[8], decryptedpacket[9], 0x00, 0x00, 0x00, 0x00, 0x00 
+                                    0xAA, 0x00, 0x0C, 0x0F, clientpacketnum, 0x21, decryptedpacket[6], decryptedpacket[7], decryptedpacket[8], decryptedpacket[9], 0x00, 0x00, 0x00, 0x00, 0x00 
                                 };
+                                Console.WriteLine("TalCall: " + BitConverter.ToString(TalCall));
                                 var TalCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(TalCall);
                                 serverStream.Write(TalCallEncrypt, 0, 15);
                                 serverStream.Flush();
