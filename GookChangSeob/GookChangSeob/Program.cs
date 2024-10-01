@@ -261,20 +261,22 @@ namespace GookbabNormalize
                         {
                             packet[11] ^= 0xA8 ^ 0xA6; //현자의기원 -> 개혈체식
                         }
-                        else if (decryptedpacket[10] == 0x00 && (decryptedpacket[11] == 0x9A ||  decryptedpacket[11] == 0x9C ||  decryptedpacket[11] == 0x9E))
+                        else if (decryptedpacket[10] == 0x00 && (decryptedpacket[11] == 0x9A ||  decryptedpacket[11] == 0x9C ||  decryptedpacket[11] == 0x9E)) //탈명사식 이펙트
                         {
                             if (autotal == true)
                             {
+                                pauseClientToServerThread.Reset();
                                 byte clientpacketnum = MemoryClass.ReadMemoryValue(0x5F8E90);
                                 MemoryClass.ModifyMemoryValue(clientpacketnum);
                                 byte[] TalCall = new byte[15] 
                                 { 
-                                    0xAA, 0x00, 0x0C, 0x0F, clientpacketnum, 0x21, decryptedpacket[6], decryptedpacket[7], decryptedpacket[8], decryptedpacket[9], 0x00, 0x00, 0x00, 0x00, 0x00 
+                                    0xAA, 0x00, 0x0C, 0x0F, clientpacketnum, talkey, decryptedpacket[6], decryptedpacket[7], decryptedpacket[8], decryptedpacket[9], 0x00, 0x00, 0x00, 0x00, 0x00 
                                 };
                                 Console.WriteLine("TalCall: " + BitConverter.ToString(TalCall));
                                 var TalCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(TalCall);
                                 serverStream.Write(TalCallEncrypt, 0, 15);
                                 serverStream.Flush();
+                                pauseClientToServerThread.Set();
                             }
                         }
                         else if (decryptedpacket[10] == 0x05 && decryptedpacket[11] == 0x6E)
@@ -308,7 +310,7 @@ namespace GookbabNormalize
                             }
                         }
                         */
-                        if (packet[1] == 0x00 && packet[2] > 0x3D)
+                        if (packet[1] == 0x00 && packet[2] > 0x3D) //이름 받아오는 경우
                         {
                             if (decryptedpacket[60] == 00)
                             {
@@ -317,7 +319,6 @@ namespace GookbabNormalize
                         }
                         else // 화면내 캐릭터의 닉네임을 받아오지 못하면 캐릭터 상세정보를 받아옴
                         {
-                            // clientToServerThread 일시정지
                             pauseClientToServerThread.Reset();
                             byte[] InfoCall = new byte[11];
                             StoreRecvArray(decryptedpacket); //전체 패킷을 복사
@@ -327,7 +328,6 @@ namespace GookbabNormalize
                             var InfoCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(InfoCall);
                             serverStream.Write(InfoCallEncrypt, 0, 11);
                             serverStream.Flush();
-                            // clientToServerThread 일시정지 해제
                             pauseClientToServerThread.Set();
                         }
                     }
