@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GookChangSeob")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c4cc4a4f4e244f95d8753d7a37db86f15b1cecd3")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c3f67e5cb12464be0d873b8e95d50ae5ac5a2f89")]
 [assembly: System.Reflection.AssemblyProductAttribute("GookChangSeob")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GookChangSeob")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
