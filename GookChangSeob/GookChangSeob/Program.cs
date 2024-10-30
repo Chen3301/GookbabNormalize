@@ -8,6 +8,8 @@ using System.Runtime.InteropServices;
 using System.Linq;
 using System.Xml.Linq;
 using System.Formats.Asn1;
+using System.Security.Cryptography.X509Certificates;
+using Microsoft.VisualBasic;
 
 namespace GookbabNormalize
 {
@@ -20,25 +22,41 @@ namespace GookbabNormalize
         static int basePort = 0; //접속용 포트 저장용
         static int portchange = 0; //접속시 포트 변경 체크
         static int InfoShutdown = 0; // 0x34 패킷 자동으로 받아올때 인포 차단용
-        static int simtudelaycheck = 0; //심투 사용시 시간내에 받아오는 캐릭터갯수 체크
+        //static int simtudelaycheck = 0; //심투 사용시 시간내에 받아오는 캐릭터갯수 체크
         static int EnemyTargetNum = 0; //적 캐릭터 타겟 저장한 갯수 저장
+        static int MobTargetNum = 0; //보이는 몹 개체수 저장
         static int attackdelay = 0; //헬파이어 딜레이
         static int attackdelay2 = 0; //삼매진화 딜레이
         static int bantandelay = 0; //반탄공 딜레이
+        static int autoexpsell = 0; //경변 자동체크
         static uint[] EnemyTargetarray = new uint[128]; //적 캐릭터 타겟 저장
+        static uint[] MobTargetarray = new uint[64]; //몹 타겟 저장
         static bool dispelcheck = false; //무력화 체크용 변수
         static bool simtucheck = false; //심투 활성화 여부 체크
         static bool autotal = false; //자동탈 활성화 여부 체크
         static bool autohell = false; //자동헬 활성화 여부 체크
         static bool autobantan = false; //자동반탄 활성화 여부 체크
+        static bool autostarfall = false; //자동공격 활성화 여부 체크
         static bool resetcheck = false; //캐릭터 첫 접속시 체크 스킬키 초기화 확인용
+        static bool startcheck = false; //첫 접속체크
+        static bool expsell = false; //자동경팔 작동 체크
+        static bool paralcheck = false; //마비 해제 체크
+        static bool cursecheck = false; //저주 해제 체크
         //static bool hitcheck = false; //평타 체크용
         static byte talkey = 0; //탈명사식 키 번호
         static byte cursekey = 0; //저주 혼마류 키 번호
         static byte mangongkey = 0; //만공 키 번호
+        static byte starfallkey = 0; //성려멸주 키 번호
         static byte attackkey = 0; //헬파이어 지옥진화 키 번호
         static byte attackkey2 = 0; //삼매진화 키 번호
         static byte bantankey = 0; //반탄공 키 번호
+        static byte anticursekey = 0; //퇴마주 키
+        static byte antiparalkey = 0; //활력 키
+        static byte expsellkey = 0; //경변 키 번호
+        static byte myXvalue = 0; //내캐릭터 X좌표
+        static byte myYvalue = 0; //내캐릭터 Y좌표
+        static byte[] MobXarray = new byte[64]; //몹 x좌표 저장
+        static byte[] MobYarray = new byte[64]; //몹 y좌표 저장
         static byte[] mytargetnum = new byte[4]; //내 타겟넘버 저장
         static byte[] dispeltarget = new byte[4]; //무력화 타겟 저장
         static byte[] helltarget = new byte[4]; //헬타겟 저장
@@ -47,11 +65,14 @@ namespace GookbabNormalize
         static byte[,] ChaPacketarray = new byte[76,16]; //화면내 캐릭터정보 패킷 저장
         private static ManualResetEvent pauseClientToServerThread = new ManualResetEvent(true); // 서버 패킷 처리중 클라이언트 패킷 보내야할때 쓰레드 일시정지 용도
         private static ManualResetEvent pauseServerToClientThread = new ManualResetEvent(true); // 클라이언트 패킷 처리 쓰레드 일시정지용
+        private static ManualResetEvent pauseAutoMagicThread = new ManualResetEvent(true);
         private static DateTime lastProcessedTime = DateTime.MinValue; //헬파이어 딜레이 체크
         private static DateTime lastProcessedTime2 = DateTime.MinValue; //만공 딜레이 체크
-        private static readonly Stopwatch timer = Stopwatch.StartNew(); //캐릭터 정보 받아오는 딜레이
+        //private static readonly Stopwatch timer = Stopwatch.StartNew(); //캐릭터 정보 받아오는 딜레이
         public static void Main(string[] args)
         {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
             // 프록시 서버 시작
             Thread proxyThread = new Thread(Start);
             proxyThread.Start();
@@ -108,29 +129,6 @@ namespace GookbabNormalize
                 listener.Stop();
                 Console.WriteLine("서버가 종료되었습니다.");
             }
-            /*
-            try
-            {
-                // 127.0.0.1:2345에서 대기하는 프록시 서버 설정
-                TcpListener listener = new TcpListener(IPAddress.Parse("127.0.0.1"), 2345);
-                listener.Start();
-                Console.WriteLine("클라이언트 연결 대기중....");
-                while (true)
-                {
-                    client = listener.AcceptTcpClient();
-                    clientStream = client.GetStream();
-                    Console.WriteLine("클라이언트가 연결되었습니다.");
-
-                    // 클라이언트와 통신 처리
-                    Thread clientThread = new Thread(() => ServerConnect(2010));
-                    clientThread.Start();
-                }
-            }
-            catch (SocketException e)
-            {
-                Console.WriteLine($"SocketException: {e}");
-            }
-            */
         }
         private static void ServerConnect(int portnum)
         {
@@ -187,6 +185,13 @@ namespace GookbabNormalize
                 // Server to Client 데이터 처리 로직
             }
         }
+        private static void AutoMagicThreadMethod() //자동공격 쓰레드 일시정지용
+        {
+            while (true)
+            {
+                pauseAutoMagicThread.WaitOne(); // 일시정지 상태가 해제될 때까지 대기
+            }
+        }
         static uint ConvertBytesToUInt32BigEndian(byte[] bytes) //byte값 uint로 변환하는 함수
         {
             if (bytes.Length != 4)
@@ -214,6 +219,7 @@ namespace GookbabNormalize
             for (int i = 0; i < 64; i++)
             {
                 EnemyTargetarray[i] = 0;
+                MobTargetarray[i] = 0;
                 if (i < 16)
                 {
                     ChaPacketarray[0,i] = 0;
@@ -227,10 +233,18 @@ namespace GookbabNormalize
                 attackkey2 = 0;
                 mangongkey = 0;
                 bantankey = 0;
+                starfallkey = 0;
+                expsellkey = 0;
+                autoexpsell = 0;
+                anticursekey = 0;
+                antiparalkey = 0;
                 resetcheck = false;
                 autotal = false;
                 simtucheck = false;
                 dispelcheck = false;
+                startcheck = false;
+                autostarfall = false;
+                expsell = false;
             }
        }
         private static void ForwardTraffic(NetworkStream inputStream, NetworkStream outputStream, string direction) // 네트워크 스트림에서 데이터를 주고받을 때의 로직
@@ -286,7 +300,7 @@ namespace GookbabNormalize
         }
         static void MagicCast(byte MagicKey, byte[] TargetArray, int MagicType = 0)
         {
-            pauseClientToServerThread.Reset();            
+            pauseClientToServerThread.Reset();           
             byte clientpacketnum = MemoryClass.ReadMemoryValue(0x5F8E90);
             MemoryClass.ModifyMemoryValue(clientpacketnum);
             byte[] MagicCall = new byte[15] 
@@ -296,6 +310,92 @@ namespace GookbabNormalize
             Console.WriteLine("MagicCall: " + BitConverter.ToString(MagicCall));
             var MagicCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(MagicCall);
             serverStream.Write(MagicCallEncrypt, 0, 15);
+            serverStream.Flush();
+            pauseClientToServerThread.Set();
+        }
+        public static void NoticeCall(string inputString)
+        {
+            // EUC-KR 인코딩 객체 생성
+            Encoding euckr = Encoding.GetEncoding("euc-kr");
+
+            // 문자열을 바이트 배열로 변환
+            byte[] stringBytes = euckr.GetBytes(inputString);
+
+            // 바이트 길이 계산
+            byte YY = (byte)stringBytes.Length;
+
+            // 0xXX 계산
+            byte XX = (byte)(YY + 5);
+
+            // 헤더 배열 생성
+            byte[] header = new byte[]
+            {
+                0xAA, 0x00, XX, 0x0A, 0x00, 0x04, 0x00, YY
+            };
+
+            // 최종 배열 생성
+            byte[] resultArray = new byte[XX + 3];
+            Buffer.BlockCopy(header, 0, resultArray, 0, header.Length);
+            Buffer.BlockCopy(stringBytes, 0, resultArray, header.Length, stringBytes.Length);
+            var NoticeCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(resultArray);
+            clientStream.Write(NoticeCallEncrypt, 0, XX + 3);
+            clientStream.Flush();
+        }
+        public static void AutoAttack()
+        {
+            while (autostarfall == true)
+            {
+                Thread.Sleep(50);
+                for (int i = 0; i < MobTargetNum; i++)
+                {
+                    if (MobTargetarray[i] != 0)
+                    {
+                        if (Math.Abs(myXvalue - MobXarray[i]) < 7 && Math.Abs(myYvalue - MobYarray[i]) < 7)
+                        {
+                            byte[] Targetarray = ConvertUInt32ToBytesBigEndian(MobTargetarray[i]);
+                            MagicCast(cursekey,Targetarray);
+                            while(MobTargetarray[i] != 0)
+                            {
+                                MagicCast(starfallkey,Targetarray);
+                                Thread.Sleep(200);
+                            }
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+                }
+            }
+            Console.WriteLine("쓰레드 종료");
+        }
+        public static void AutoCast(byte MagicKey, byte[] TargetArray) //마비 저주 걸렸을떄 자동해제
+        {
+            Task.Run(async () =>
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    if (cursecheck == true)
+                    {
+                        MagicCast(anticursekey, TargetArray);
+                        await Task.Delay(200);
+                    }
+                    MagicCast(MagicKey, TargetArray);
+                    await Task.Delay(200); // 0.25초 지연
+                }
+            });
+        }
+        public static void NPCselect(byte k)
+        {
+            pauseClientToServerThread.Reset();
+            byte clientpacketnum = MemoryClass.ReadMemoryValue(0x5F8E90);
+            MemoryClass.ModifyMemoryValue(clientpacketnum);
+            byte[] NPCCall = new byte[17]
+            {
+                0xAA, 0x00, 0x0E, 0x3A, clientpacketnum, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01, k, 0x00
+            };           
+            var NPCCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(NPCCall);
+            serverStream.Write(NPCCallEncrypt, 0, 17);
             serverStream.Flush();
             pauseClientToServerThread.Set();
         }
@@ -341,7 +441,28 @@ namespace GookbabNormalize
                         varinitialize();
                     }
                 }
-                else if (length > 0 && packet[3] == 0x08) //절망 차단
+                else if (length > 0 && packet[3] == 0x07) //화면내 몹 정보
+                {
+                    if (autostarfall == true)
+                    {
+                        pauseAutoMagicThread.Reset();   
+                        var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                        if (MobTargetNum < 63)
+                        {
+                            byte[] targetarray = new byte[4];
+                            for (int i = 0; i < 4; i++)
+                            {
+                                targetarray[i] = decryptedpacket[12+i];
+                            }
+                            MobTargetarray[MobTargetNum] = ConvertBytesToUInt32BigEndian(targetarray);
+                            MobXarray[MobTargetNum] = decryptedpacket[6];
+                            MobXarray[MobTargetNum] = decryptedpacket[8];
+                            MobTargetNum++;
+                        }
+                        pauseAutoMagicThread.Set();
+                    }
+                }
+                else if (length > 0 && packet[3] == 0x08) // 절망/경험치변동
                 {
                     if (packet[1] == 0x00 && packet[2] == 0x17)
                     {
@@ -349,6 +470,26 @@ namespace GookbabNormalize
                         if (decryptedpacket[7] != 0x00)
                         {
                             packet[7] ^= 0x01;
+                        }
+                    }
+                    else if (packet[1] == 0x00 && packet[2] == 0x1B)
+                    {
+                        var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                        if (decryptedpacket[5] == 0x10 && decryptedpacket[6] >= 0xEF && autoexpsell > 0)
+                        {
+                            pauseClientToServerThread.Reset();
+                            byte clientpacketnum = MemoryClass.ReadMemoryValue(0x5F8E90);
+                            MemoryClass.ModifyMemoryValue(clientpacketnum);
+                            byte[] ItemCall = new byte[7]
+                            {
+                                0xAA, 0x00, 0x04, 0x1C, clientpacketnum, expsellkey, 0x00
+                            };           
+                            var ItemCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(ItemCall);
+                            serverStream.Write(ItemCallEncrypt, 0, 7);
+                            serverStream.Flush();
+                            pauseClientToServerThread.Set();
+                            expsell = true;
+                            Console.WriteLine("경변시작");
                         }
                     }
                     else if (packet[1] == 0x00 && packet[2] == 0x49)
@@ -362,12 +503,48 @@ namespace GookbabNormalize
                 }
                 else if (length > 0 && packet[3] == 0x0A) //시스템 메세지
                 {
-                    if (packet[1] == 0x00 && packet[2] == 0x68) //첫 접속시 메세지
+                    if (packet[1] == 0x00 && packet[2] == 0x68 && startcheck == false) //첫 접속시 메세지
                     {
-
+                        byte[] NoticeCallArray;
+                        int NoticeCallLength = 0;
+                        NoticeCallArray = new byte[35] //
+                        {
+                            0xAA, 0x00, 0x20, 0x0A, 0x00, 0x0B, 0x00, 0x1B, 0x5B, 0xC1,
+                            0xA2, 0xBD, 0xC3, 0xBB, 0xEC, 0xC0, 0xCE, 0xB8, 0xB6, 0x5D,
+                            0x3A, 0x20, 0xBC, 0xAD, 0xB9, 0xF6, 0xB8, 0xD4, 0xC0, 0xDA,
+                            0x20, 0xBD, 0xC3, 0xB9, 0xDF
+                        };
+                        NoticeCallLength = 35;
+                        var NoticeCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(NoticeCallArray);
+                        clientStream.Write(NoticeCallEncrypt, 0, NoticeCallLength);
+                        clientStream.Flush();
+                        startcheck = true;
                     }
                 }
-                else if (length > 0 && packet[3] == 0x0E) //화면내 캐릭터 사라졌을때 몹은 포함하지않음
+                else if (length > 0 && packet[3] == 0x0C) //캐릭터 / 몹 이동
+                {
+                    if (packet[1] == 0x00 && packet[2] == 0x0C)
+                    {
+                        var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                        byte[] targetarray = new byte[4];
+                        for (int i = 0; i < 4; i++)
+                        {
+                            targetarray[i] = decryptedpacket[5+i];
+                        }
+                        uint targetvalue = ConvertBytesToUInt32BigEndian(targetarray);
+                        for (int i = 0; i < MobTargetNum; i++)
+                        {
+                            if (targetvalue == MobTargetarray[i])
+                            {
+                                pauseAutoMagicThread.Reset(); 
+                                MobXarray[i] = decryptedpacket[10];
+                                MobYarray[i] = decryptedpacket[12];
+                                pauseAutoMagicThread.Set(); 
+                            }
+                        }
+                    }
+                }
+                else if (length > 0 && packet[3] == 0x0E) //화면내 캐릭터/몹 사라졌을때
                 {
                     if (EnemyTargetNum > 0)
                     {
@@ -408,13 +585,50 @@ namespace GookbabNormalize
                             targetnumsave[i] = 0;
                         }
                     }
+                    if (MobTargetNum > 0)
+                    {
+                        var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                        byte[] targetarray = new byte[4];
+                        for (int i = 0; i < 4; i++)
+                        {
+                            targetarray[i] = decryptedpacket[5+i];
+                        }
+                        uint targetvalue = ConvertBytesToUInt32BigEndian(targetarray);
+                        for (int i = 0; i < MobTargetNum; i++)
+                        {
+                            if (targetvalue == MobTargetarray[i])
+                            {
+                                pauseAutoMagicThread.Reset();
+                                if (i != MobTargetNum - 1)
+                                {
+                                    MobTargetarray[i] = MobTargetarray[MobTargetNum-1];
+                                    MobTargetarray[MobTargetNum-1] = 0;
+                                }
+                                else
+                                {
+                                    MobTargetarray[i] = 0;
+                                }
+                                MobTargetNum--;
+                                Console.WriteLine($"MobTargetNum : {MobTargetNum}");
+                                pauseAutoMagicThread.Set();
+                            }
+                        }
+                    }
+                }
+                else if (length > 0 && packet[3] == 0x0F) //인벤토리 아이템 B0 E6 C7 E8 C4 A1 BA AF
+                {
+                    var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                    if (decryptedpacket[11] == 0x0E && decryptedpacket[12] == 0xB0 && decryptedpacket[13] == 0xE6 && decryptedpacket[14] == 0xC7 && decryptedpacket[15] == 0xE8 && decryptedpacket[16] == 0xC4 && decryptedpacket[17] == 0xA1 && decryptedpacket[18] == 0xBA && decryptedpacket[19] == 0xAF)
+                    {
+                        expsellkey = decryptedpacket[5];
+                    }
                 }
                 else if (length > 0 && packet[3] == 0x13) //체력바
                 {
                     var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
                     if (decryptedpacket[5] == helltarget[0] && decryptedpacket[6] == helltarget[1] && decryptedpacket[7] == helltarget[2] && decryptedpacket[8] == helltarget[3])
                     {
-                        if (autohell == true && (DateTime.Now - lastProcessedTime).TotalSeconds >= attackdelay2)
+                        if (autohell == true && (DateTime.Now - lastProcessedTime2).TotalSeconds >= attackdelay2)
                         {
                             if (mangongkey != 0 && attackkey2 != 0 && decryptedpacket[10] < 0x32)// 타겟 hp 50% 아래일때 만공삼매사용
                             {
@@ -442,7 +656,7 @@ namespace GookbabNormalize
                     else if (decryptedpacket[8] == 0xC0 && decryptedpacket[9] == 0xFA && decryptedpacket[10] == 0xC1 && decryptedpacket[11] == 0xD6)
                     {
                         cursekey = decryptedpacket[5]; //혼마술 혼마예등 혼마로 시작하는마법
-                    } ///////////////////////////////////////////////////////////////////////////////////// 극진성려멸주 decryptedpacket[8] == 0xB1 && decryptedpacket[9] == 0xD8 && decryptedpacket[10] == 0xC1 && decryptedpacket[11] == 0xF8 && decryptedpacket[12] == 0xBC && decryptedpacket[13] == 0xBA
+                    }
                     else if ((decryptedpacket[8] == 0xC7 && decryptedpacket[9] == 0xEF) || (decryptedpacket[8] == 0xC1 && decryptedpacket[9] == 0xF6 && decryptedpacket[10] == 0xBF && decryptedpacket[11] == 0xC1 && decryptedpacket[12] == 0xC1 && decryptedpacket[13] == 0xF8))
                     {
                         attackkey = decryptedpacket[5]; // 헬 혹은 지옥진으로 시작하는 마법 헬파이어 지옥진화
@@ -457,7 +671,22 @@ namespace GookbabNormalize
                     }
                     else if (decryptedpacket[8] == 0xB9 && decryptedpacket[9] == 0xDD && decryptedpacket[10] == 0xC5 && decryptedpacket[11] == 0xBA)
                     {
-                        bantankey = decryptedpacket[5]; // 반탄공 B9 DD C5 BA
+                        bantankey = decryptedpacket[5]; // 반탄공
+                    }
+                    else if (decryptedpacket[8] == 0xC5 && decryptedpacket[9] == 0xF0 && decryptedpacket[10] == 0xB8 && decryptedpacket[11] == 0xB6)
+                    {
+                        anticursekey = decryptedpacket[5]; // 퇴마주
+                    }
+                    else if (decryptedpacket[8] == 0xC8 && decryptedpacket[9] == 0xB0 && decryptedpacket[10] == 0xB7 && decryptedpacket[11] == 0xC2)
+                    {
+                        antiparalkey = decryptedpacket[5]; // 활력
+                    }
+                    else if (decryptedpacket[8] == 0xB1 && decryptedpacket[9] == 0xD8 && decryptedpacket[10] == 0xC1 && decryptedpacket[11] == 0xF8)
+                    {
+                        if (decryptedpacket[7] == 0x0C && decryptedpacket[12] == 0xBC && decryptedpacket[13] == 0xBA && decryptedpacket[14] == 0xB7 && decryptedpacket[15] == 0xC1)
+                        {
+                            starfallkey = decryptedpacket[5]; // 극진성려멸주
+                        }
                     }
                 }
                 else if (length > 0 && packet[3] == 0x19) //마법 이펙트 사운드
@@ -495,7 +724,6 @@ namespace GookbabNormalize
                                         MagicCast(bantankey,dispeltarget);
                                     }
                                 }
-
                             }
                             else
                             {
@@ -526,53 +754,31 @@ namespace GookbabNormalize
                         dispelcheck = false;
                     }
                 }
-                /*
-                else if (length > 0 && packet[3] == 0x1A) //캐릭터모션
-                {
-                    var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
-                    if (hitcheck == true)
-                    {
-                        int mytargetcheck = 0; 
-                        for (int i = 0; i < 4; i++)
-                        {
-                            if (mytargetnum[i] == decryptedpacket[5])
-                            {
-                                mytargetcheck++;
-                            }
-                        }
-                        if (decryptedpacket[9] == 0x01 && decryptedpacket[10] == 0x00 && decryptedpacket[11] == 0x14 && mytargetcheck == 4)
-                        {
-                            pauseClientToServerThread.Reset();            
-                            byte clientpacketnum = MemoryClass.ReadMemoryValue(0x5F8E90);
-                            MemoryClass.ModifyMemoryValue(clientpacketnum);
-                            byte[] AttackCall = new byte[7] 
-                            { 
-                                0xAA, 0x00, 0x04, 0x13, clientpacketnum, 0x00, 0x00
-                            };
-                            Console.WriteLine("AttackCall: " + BitConverter.ToString(AttackCall));
-                            var AttackCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(AttackCall);
-                            serverStream.Write(AttackCallEncrypt, 0, 7);
-                            serverStream.Flush();
-                            pauseClientToServerThread.Set();
-                        }
-                        hitcheck = false;
-                    }
-                }
-                */
                 else if (length > 0 && packet[3] == 0x1D) //투명 갱신시
                 {
                     if (simtucheck == true)
                     {
                         var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
-                        if (decryptedpacket[11] == 0x02)
+                        if (packet[1] == 0x00 && packet[2] >= 0x38)
                         {
-                            packet[11] ^= 0x02 ^ 0x05; // 화면내에서 투명 갱신시
-                        }
-                        else if (decryptedpacket[11] == 0x05)
-                        {
-                            packet[11] ^= 0x05;
+                            if (decryptedpacket[11] == 0x02)
+                            {
+                                packet[11] ^= 0x02 ^ 0x05; // 화면내에서 투명 갱신시
+                            }
+                            else if (decryptedpacket[11] == 0x05)
+                            {
+                                packet[11] ^= 0x05;
+                            }
                         }
                     }
+                }
+                else if (length > 0 && packet[3] == 0x26) //내 캐릭터 좌표이동
+                {
+                    var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                    pauseAutoMagicThread.Reset();
+                    myXvalue = decryptedpacket[11];
+                    myYvalue = decryptedpacket[13];
+                    pauseAutoMagicThread.Set();
                 }
                 else if (length > 0 && packet[3] == 0x29) //마법 이펙트 포탈 포함
                 {
@@ -597,7 +803,7 @@ namespace GookbabNormalize
                         {
                             packet[11] ^= 0xA8 ^ 0xA6; //현자의기원 -> 개혈체식
                         }
-                        else if (decryptedpacket[10] == 0x00 && (decryptedpacket[11] == 0x9A ||  decryptedpacket[11] == 0x9C ||  decryptedpacket[11] == 0x9E)) //탈명사식 이펙트
+                        else if (decryptedpacket[10] == 0x00 && (decryptedpacket[11] == 0x9A ||  decryptedpacket[11] == 0x9C || decryptedpacket[11] == 0x9E || decryptedpacket[11] == 0xC6)) //탈명사식 이펙트
                         {
                             if (autotal == true && talkey != 0)
                             {
@@ -616,15 +822,23 @@ namespace GookbabNormalize
                         }
                     }
                 }
-                /*
                 else if (length > 0 && packet[3] == 0x30) //NPC창 열지않음
                 {
-                    if (NPCshutdown == true)
+                    if (autoexpsell > 0 && expsell == true)
                     {
+                        if (packet[1] == 0x00 && packet[2] == 0x59)
+                        {
+                            NPCselect((byte)autoexpsell);
+                        }
+                        else if (packet[1] == 0x01 && packet[2] == 0x2B)
+                        {
+                            NPCselect(1);
+                            expsell = false;
+                            NoticeCall("경험치를 변환했습니다");
+                        }
                         packet[3] = 0xFF;
                     }
                 }
-                */
                 else if (length > 0 && packet[3] == 0x33) //화면내 캐릭터정보
                 {
                     if (simtucheck == true)
@@ -698,34 +912,9 @@ namespace GookbabNormalize
                                     }
                                 }
                             }
-                            else // 화면내 캐릭터의 닉네임을 받아오지 못하면 캐릭터 상세정보를 받아옴
+                            else if (packet[1] == 0x00 && packet[2] == 0x3D)// 화면내 캐릭터의 닉네임을 받아오지 못하면 캐릭터 상세정보를 받아옴
                             {
-                                /*
-                                if (InfoShutdown < 15)
-                                {
-                                    pauseClientToServerThread.Reset();
-                                    byte[] InfoCall = new byte[11];
-                                    StoreRecvArray(decryptedpacket); //전체 패킷을 복사
-                                    byte clientpacketnum = MemoryClass.ReadMemoryValue(0x5F8E90);
-                                    MemoryClass.ModifyMemoryValue(clientpacketnum);
-                                    InfoCall[0] = 0xAA; InfoCall[1] = 0x00; InfoCall[2] = 0x08; InfoCall[3] = 0x43; InfoCall[4] = clientpacketnum; InfoCall[5] = 0x01; InfoCall[6] = decryptedpacket[10]; InfoCall[7] = decryptedpacket[11]; InfoCall[8] = decryptedpacket[12]; InfoCall[9] = decryptedpacket[13]; InfoCall[10] = 0x00;
-                                    var InfoCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(InfoCall);
-                                    serverStream.Write(InfoCallEncrypt, 0, 11);
-                                    serverStream.Flush();
-                                    pauseClientToServerThread.Set();
-                                }
-                                else
-                                {
-                                    if (decryptedpacket[16] == 0x02)
-                                    {
-                                        packet[16] ^= 0x05 ^ 0x02; // 투명을 반투명으로 변환
-                                    }
-                                    if (decryptedpacket[60] == 00) // 문파원 동맹 외 이름색깔 적문으로 변경
-                                    {
-                                        packet[60] ^= 0x01;
-                                    }
-                                }
-                                */
+                                // if infoshutdown < 15
                                 if (decryptedpacket[16] == 0x02)
                                 {
                                     packet[16] ^= 0x05 ^ 0x02; // 투명을 반투명으로 변환
@@ -733,6 +922,26 @@ namespace GookbabNormalize
                                 if (decryptedpacket[60] == 00) // 문파원 동맹 외 이름색깔 적문으로 변경
                                 {
                                     packet[60] ^= 0x01;
+                                }
+                                if (EnemyTargetNum < 127)
+                                {
+                                    byte[] savetargetarray = new byte[4]; // 타겟넘버 저장할 배열 생성
+                                    for (int i = 0; i < 4; i++)
+                                    {
+                                        savetargetarray[i] = decryptedpacket[10+i];
+                                    }
+                                    uint targetvalue = ConvertBytesToUInt32BigEndian(savetargetarray);
+                                    EnemyTargetarray[EnemyTargetNum] = targetvalue;
+                                    EnemyTargetNum++;
+                                    Console.WriteLine($"save enemytarget : {targetvalue}");
+                                    Console.WriteLine($"EnemyTargetNum : {EnemyTargetNum}");
+                                }
+                            }
+                            else // 변신상태
+                            {
+                                if (decryptedpacket[21] == 00) // 문파원 동맹 외 이름색깔 적문으로 변경
+                                {
+                                    packet[21] ^= 0x01;
                                 }
                                 if (EnemyTargetNum < 127)
                                 {
@@ -795,6 +1004,42 @@ namespace GookbabNormalize
                         }
                     }
                 }
+                else if (length > 0 && packet[3] == 0x3A) //버프 디버프류 들어올때
+                {
+                    
+                    if (length >= 17 && length <= 19)
+                    {
+                        var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                        if (decryptedpacket[5] == 0x06 && decryptedpacket[6] == 0xB8 && decryptedpacket[7] == 0xF7 && decryptedpacket[8] == 0xB8 && decryptedpacket[9] == 0xB6 && antiparalkey > 0)
+                        {
+                            if (decryptedpacket[15] > 0x00)
+                            {
+                                if (paralcheck == false)
+                                {
+                                    AutoCast(antiparalkey,mytargetnum);
+                                    paralcheck = true;
+                                }
+                            }
+                            else
+                            {
+                                paralcheck = false;
+                            }
+
+                        }
+                        else if (decryptedpacket[5] == 0x08 && decryptedpacket[6] == 0xC8 && decryptedpacket[7] == 0xAF && decryptedpacket[8] == 0xBB && decryptedpacket[9] == 0xF3 && anticursekey > 0)
+                        {
+                            if (decryptedpacket[17] > 0x00)
+                            {
+                                //AutoCast(anticursekey,mytargetnum);
+                                cursecheck = true;
+                            }
+                            else
+                            {
+                                cursecheck = false;
+                            }
+                        }
+                    }
+                }
                 else if (length > 0 && packet[3] == 0x3F) //스킬 쿨타임
                 {
                     var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
@@ -815,145 +1060,176 @@ namespace GookbabNormalize
                     }
                 }
             }
-            else
+            else //클라이언트 패킷
             {
                 if (length > 0 && packet[3] == 0x0E)
                 {
                     var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
                     if (decryptedpacket[7] == 0x2F)
                     {
-                        // /심투
-                        if (decryptedpacket[8] == 0xBD && decryptedpacket[9] == 0xC9 && decryptedpacket[10] == 0xC5 && decryptedpacket[11] == 0xF5)
+                        // /심투 /ㅅㅌ
+                        if ((decryptedpacket[8] == 0xBD && decryptedpacket[9] == 0xC9 && decryptedpacket[10] == 0xC5 && decryptedpacket[11] == 0xF5) || (decryptedpacket[8] == 0xA4 && decryptedpacket[9] == 0xB5 && decryptedpacket[10] == 0xA4 && decryptedpacket[11] == 0xBC))
                         {
                             Array.Clear(packet, 0, length);
                             packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[4] = decryptedpacket[4]; packet[5] = 0x00; packet[6] = 0x00; length = 7;
-                            byte[] NoticeCall;
-                            int NoticeCallLength = 0;
                             if (simtucheck == false)
                             { 
                                 simtucheck = true;
-                                NoticeCall = new byte[23]
-                                {
-                                    0xAA, 0x00, 0x14, 0x0A, 0x00, 0x04, 0x00, 0x0F, 0xBD, 0xC9,
-                                    0xBE, 0xC8, 0xC5, 0xF5, 0xBF, 0xB5, 0x20, 0xC8, 0xB0, 0xBC,
-                                    0xBA, 0xC8, 0xAD
-                                };
-                                NoticeCallLength = 23;
+                                NoticeCall("심안투영 활성화");
                             }
                             else
                             {
                                 simtucheck = false;
-                                NoticeCall = new byte[25]
-                                {
-                                    0xAA, 0x00, 0x16, 0x0A, 0x00, 0x04, 0x00, 0x11, 0xBD, 0xC9,
-                                    0xBE, 0xC8, 0xC5, 0xF5, 0xBF, 0xB5, 0x20, 0xBA, 0xF1, 0xC8,
-                                    0xB0, 0xBC, 0xBA, 0xC8, 0xAD
-                                };
-                                NoticeCallLength = 25;
+                                NoticeCall("심안투영 비활성화");
                             }
-                            var NoticeCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(NoticeCall);
-                            clientStream.Write(NoticeCallEncrypt, 0, NoticeCallLength);
-                            clientStream.Flush();
                         }
                         // /자동
-                        else if (decryptedpacket[8] == 0xC0 && decryptedpacket[9] == 0xDA && decryptedpacket[10] == 0xB5 && decryptedpacket[11] == 0xBF)
+                        else if ((decryptedpacket[8] == 0xC0 && decryptedpacket[9] == 0xDA && decryptedpacket[10] == 0xB5 && decryptedpacket[11] == 0xBF) || (decryptedpacket[8] == 0xA4 && decryptedpacket[9] == 0xB8 && decryptedpacket[10] == 0xA4 && decryptedpacket[11] == 0xA7))
                         {
                             Array.Clear(packet, 0, length);
                             packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[4] = decryptedpacket[4]; packet[5] = 0x00; packet[6] = 0x00; length = 7;
-                            if (decryptedpacket[12] == 0xC5 && decryptedpacket[13] == 0xBB) //자동탈
-                            {
-                                byte[] NoticeCall;
-                                int NoticeCallLength = 0;
+                            if ((decryptedpacket[12] == 0xC5 && decryptedpacket[13] == 0xBB) || (decryptedpacket[12] == 0xA4 && decryptedpacket[13] == 0xBC)) //자동탈
+                            { // /자동탈 /ㅈㄷㅌ
                                 if (autotal == false)
                                 {
                                     autotal = true;
-                                    NoticeCall = new byte[23]
-                                    {
-                                        0xAA, 0x00, 0x14, 0x0A, 0x00, 0x04, 0x00, 0x0F, 0xC0, 0xDA,
-                                        0xB5, 0xBF, 0xC5, 0xBB, 0xB8, 0xED, 0x20, 0xC8, 0xB0, 0xBC,
-                                        0xBA, 0xC8, 0xAD
-                                    };
-                                    NoticeCallLength = 23;
+                                    NoticeCall("자동탈명 활성화");
                                 }
                                 else
                                 {
                                     autotal = false;
-                                    NoticeCall = new byte[25]
-                                    {
-                                        0xAA, 0x00, 0x16, 0x0A, 0x00, 0x04, 0x00, 0x11, 0xC0, 0xDA,
-                                        0xB5, 0xBF, 0xC5, 0xBB, 0xB8, 0xED, 0x20, 0xBA, 0xF1, 0xC8,
-                                        0xB0, 0xBC, 0xBA, 0xC8, 0xAD
-                                    };
-                                    NoticeCallLength = 25;
+                                    NoticeCall("자동탈명 비활성화");
                                 }
-                                var NoticeCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(NoticeCall);
-                                clientStream.Write(NoticeCallEncrypt, 0, NoticeCallLength);
-                                clientStream.Flush();
                             }
-                            else if (decryptedpacket[12] == 0xC7 && decryptedpacket[13] == 0xEF) //자동헬
-                            {
-                                byte[] NoticeCall;
-                                int NoticeCallLength = 0;
+                            else if ((decryptedpacket[12] == 0xC7 && decryptedpacket[13] == 0xEF) || (decryptedpacket[12] == 0xA4 && decryptedpacket[13] == 0xBE)) //자동헬
+                            { // /자동헬 /ㅈㄷㅎ
                                 if (autohell == false)
                                 {
                                     autohell = true;
-                                    NoticeCall = new byte[21]
-                                    {
-                                        0xAA, 0x00, 0x12, 0x0A, 0x00, 0x04, 0x00, 0x0D, 0xC0, 0xDA,
-                                        0xB5, 0xBF, 0xC7, 0xEF, 0x20, 0xC8, 0xB0, 0xBC, 0xBA, 0xC8,
-                                        0xAD
-                                    };
-                                    NoticeCallLength = 21;
+                                    NoticeCall("자동헬 활성화");
                                 }
                                 else
                                 {
                                     autohell = false;
-                                    NoticeCall = new byte[23]
-                                    {
-                                        0xAA, 0x00, 0x14, 0x0A, 0x00, 0x04, 0x00, 0x0F, 0xC0, 0xDA,
-                                        0xB5, 0xBF, 0xC7, 0xEF, 0x20, 0xBA, 0xF1, 0xC8, 0xB0, 0xBC,
-                                        0xBA, 0xC8, 0xAD
-                                    };
-                                    NoticeCallLength = 23;
+                                    NoticeCall("자동헬 비활성화");
                                 }
-                                var NoticeCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(NoticeCall);
-                                clientStream.Write(NoticeCallEncrypt, 0, NoticeCallLength);
-                                clientStream.Flush();
                             }
-                            else if (decryptedpacket[12] == 0xB9 && decryptedpacket[13] == 0xDD) //자동반탄
-                            {
-                                byte[] NoticeCall;
-                                int NoticeCallLength = 0;
+                            else if ((decryptedpacket[12] == 0xB9 && decryptedpacket[13] == 0xDD) || (decryptedpacket[12] == 0xA4 && decryptedpacket[13] == 0xB2)) //자동반탄
+                            { // /자동반 /ㅈㄷㅂ
                                 if (autobantan == false)
                                 {
                                     autobantan = true;
-                                    NoticeCall = new byte[23]
-                                    {
-                                        0xAA, 0x00, 0x14, 0x0A, 0x00, 0x04, 0x00, 0x0F, 0xC0, 0xDA,
-                                        0xB5, 0xBF, 0xB9, 0xDD, 0xC5, 0xBA, 0x20, 0xC8, 0xB0, 0xBC,
-                                        0xBA, 0xC8, 0xAD
-                                    };
-                                    NoticeCallLength = 23;
+                                    NoticeCall("자동반탄 활성화");
                                 }
                                 else
                                 {
                                     autobantan = false;
-                                    NoticeCall = new byte[25]
-                                    {
-                                        0xAA, 0x00, 0x16, 0x0A, 0x00, 0x04, 0x00, 0x11, 0xC0, 0xDA,
-                                        0xB5, 0xBF, 0xB9, 0xDD, 0xC5, 0xBA, 0x20, 0xBA, 0xF1, 0xC8,
-                                        0xB0, 0xBC, 0xBA, 0xC8, 0xAD
-                                    };
-                                    NoticeCallLength = 25;
+                                    NoticeCall("자동반탄 비활성화");
                                 }
-                                var NoticeCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(NoticeCall);
-                                clientStream.Write(NoticeCallEncrypt, 0, NoticeCallLength);
-                                clientStream.Flush();
+                            }
+                            /*
+                            else if ((decryptedpacket[12] == 0xB0 && decryptedpacket[13] == 0xF8) || (decryptedpacket[12] == 0xA4 && decryptedpacket[13] == 0xA1)) //자동공격
+                            {
+                                if (autostarfall == false)
+                                {
+                                    autostarfall = true;
+                                    NoticeCall("자동공격 활성화");
+                                    Thread AutoMagicThread = new Thread(() => AutoAttack());
+                                    AutoMagicThread.Start();
+                                }
+                                else
+                                {
+                                    autostarfall = false;
+                                    NoticeCall("자동공격 비활성화");
+                                }
+                            }
+                            */
+                        }
+                        else if ((decryptedpacket[8] == 0xB0 && decryptedpacket[9] == 0xE6 && decryptedpacket[10] == 0xBA && decryptedpacket[11] == 0xAF) || (decryptedpacket[8] == 0xA4 && decryptedpacket[9] == 0xA1 && decryptedpacket[10] == 0xA4 && decryptedpacket[11] == 0xB2))
+                        { // /경변체 /경변마 /ㄱㅂㅊ /ㄱㅂㅁ
+                            Array.Clear(packet, 0, length);
+                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[4] = decryptedpacket[4]; packet[5] = 0x00; packet[6] = 0x00; length = 7;
+                            if ((decryptedpacket[12] == 0xC3 && decryptedpacket[13] == 0xBC) || (decryptedpacket[12] == 0xA4 && decryptedpacket[13] == 0xBA))
+                            {
+                                if (autoexpsell != 1)
+                                {
+                                    NoticeCall("경험치 체력변환");
+                                    autoexpsell = 1;
+                                }
+                                else
+                                {
+                                    NoticeCall("경험치 변환해제");
+                                    autoexpsell = 0;
+                                }
+                            }
+                            else if ((decryptedpacket[12] == 0xB8 && decryptedpacket[13] == 0xB6) || (decryptedpacket[12] == 0xA4 && decryptedpacket[13] == 0xB1))
+                            {
+                                if (autoexpsell != 2)
+                                {
+                                    NoticeCall("경험치 마력변환");
+                                    autoexpsell = 2;
+                                }
+                                else
+                                {
+                                    NoticeCall("경험치 변환해제");
+                                    autoexpsell = 0;
+                                }
                             }
                         }
-                        // /이펙트
-                        else if (decryptedpacket[8] == 0xC0 && decryptedpacket[9] == 0xCC && decryptedpacket[10] == 0xC6 && decryptedpacket[11] == 0xE5 && decryptedpacket[12] == 0xC6 && decryptedpacket[13] == 0xAE && decryptedpacket[14] == 0x20)
-                        {
+                        else if (((decryptedpacket[8] == 0xC1 && decryptedpacket[9] == 0xB6 && decryptedpacket[10] == 0xC7 && decryptedpacket[11] == 0xD5) || (decryptedpacket[8] == 0xA4 && decryptedpacket[9] == 0xB8 && decryptedpacket[10] == 0xA4 && decryptedpacket[11] == 0xBE)) && decryptedpacket[12] == 0x20)
+                        { // /조합 /ㅈㅎ
+                            Array.Clear(packet, 0, length);
+                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[5] = 0x00; packet[6] = 0x00; length = 7;
+                            if (decryptedpacket[6] >= 8)
+                            {
+                                bool arraycheck = false;
+                                byte[] CraftCall = new byte[decryptedpacket[6] + 2];
+                                for (int i = 0; i < (decryptedpacket[6] - 6)/2 ;i++)
+                                {
+                                    if (arraycheck == false && (decryptedpacket[6] % 2) != 1)
+                                    {
+                                        if (decryptedpacket[i + 13] > 0x60 && decryptedpacket[i + 13] < 0x7B)
+                                        {
+                                            CraftCall[i + 7] = (byte)(decryptedpacket[i + 13] - 0x60);
+                                        }
+                                        else
+                                        {
+                                            arraycheck = true;
+                                        }
+                                        if (decryptedpacket[i + 14] > 0x30 && decryptedpacket[i + 14] < 0x3A)
+                                        {
+                                            CraftCall[i + 8] = (byte)(decryptedpacket[i + 14] - 0x30);
+                                        }
+                                        else
+                                        {
+                                            arraycheck = true;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        arraycheck = true;
+                                        break;
+                                    }
+                                }
+                                if (arraycheck == false)
+                                {
+                                    CraftCall[0] = 0xAA; CraftCall[1] = 0x00; CraftCall[2] = (byte)(decryptedpacket[6] - 1); CraftCall[3] = 0x6B; CraftCall[4] = decryptedpacket[4]; CraftCall[5] = 0x00; CraftCall[6] = (byte)((decryptedpacket[6] - 6)/2); 
+                                    var CraftCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(CraftCall);
+                                    serverStream.Write(CraftCallEncrypt, 0, decryptedpacket[6] + 2);
+                                    MemoryClass.ModifyMemoryValue((byte)(decryptedpacket[4]+1));
+                                    packet[4] = (byte)(decryptedpacket[4] + 1);
+                                    NoticeCall("조합을 시도합니다");
+                                }
+                                else
+                                {
+                                    packet[4] = (byte)(decryptedpacket[4]);
+                                    NoticeCall("명령어가 올바르지 않습니다");
+                                }
+
+                            }
+                        }
+                        else if (((decryptedpacket[8] == 0xC0 && decryptedpacket[9] == 0xCC && decryptedpacket[10] == 0xC6 && decryptedpacket[11] == 0xE5 && decryptedpacket[12] == 0xC6 && decryptedpacket[13] == 0xAE) || (decryptedpacket[8] == 0xA4 && decryptedpacket[9] == 0xB7 && decryptedpacket[10] == 0xA4 && decryptedpacket[11] == 0xBD && decryptedpacket[12] == 0xA4 && decryptedpacket[13] == 0xBC)) && decryptedpacket[14] == 0x20)
+                        { // /이펙트 1 /이펙트 01 /이펙트 001 /이펙트 0001
                             Array.Clear(packet, 0, length);
                             packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[4] = decryptedpacket[4]; packet[5] = 0x00; packet[6] = 0x00; length = 7;
                             int result = 0;
@@ -985,31 +1261,16 @@ namespace GookbabNormalize
                                 magicnum = (byte)(result % 256);
                                 magicnum2 = (byte)(result / 256);
                             }
-                            int[] resultarray = new int[4];
                             string resultString = result.ToString().PadLeft(4, '0');
-                            for (int i = 0; i < 4; i++)
-                            {
-                                resultarray[i] = resultString[i] - '0';
-                            }
                             byte[] EffectCall = new byte[14]
                             {
                                 0xAA, 0x00, 0x0B, 0x29, 0x00, 0x00, mytargetnum[0], mytargetnum[1],
                                 mytargetnum[2], mytargetnum[3], magicnum2, magicnum, 0x00, 0x05
                             };
-                            Console.WriteLine("EffectCall: " + BitConverter.ToString(EffectCall));
                             var EffectCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(EffectCall);
                             clientStream.Write(EffectCallEncrypt, 0, 14);
-                            byte[] NoticeCall = new byte[24]
-                            {
-                                0xAA, 0x00, 0x15, 0x0A, 0x00, 0x04, 0x00, 0x10, 0xC0, 0xCC,
-                                0xC6, 0xE5, 0xC6, 0xAE, 0x20, (byte)(resultarray[0] + 0x30), 
-                                (byte)(resultarray[1] + 0x30), (byte)(resultarray[2] + 0x30),
-                                (byte)(resultarray[3] + 0x30), 0x20, 0xC8, 0xA3, 0xC3, 0xE2
-                            };
-                            Console.WriteLine("EffectCall: " + BitConverter.ToString(NoticeCall));
-                            var NoticeCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(NoticeCall);
-                            clientStream.Write(NoticeCallEncrypt, 0, 24);
                             clientStream.Flush();
+                            NoticeCall($"이펙트 {resultString} 호출");
                         }
                     }
                 }
@@ -1376,3 +1637,82 @@ namespace GookbabNormalize
         }
     }
 }
+
+
+
+////////////////////////////////  보류  ///////////////////////////////////////////
+///
+/*
+                else if (length > 0 && packet[3] == 0x1A) //캐릭터모션
+                {
+                    var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                    if (hitcheck == true)
+                    {
+                        int mytargetcheck = 0; 
+                        for (int i = 0; i < 4; i++)
+                        {
+                            if (mytargetnum[i] == decryptedpacket[5])
+                            {
+                                mytargetcheck++;
+                            }
+                        }
+                        if (decryptedpacket[9] == 0x01 && decryptedpacket[10] == 0x00 && decryptedpacket[11] == 0x14 && mytargetcheck == 4)
+                        {
+                            pauseClientToServerThread.Reset();            
+                            byte clientpacketnum = MemoryClass.ReadMemoryValue(0x5F8E90);
+                            MemoryClass.ModifyMemoryValue(clientpacketnum);
+                            byte[] AttackCall = new byte[7] 
+                            { 
+                                0xAA, 0x00, 0x04, 0x13, clientpacketnum, 0x00, 0x00
+                            };
+                            Console.WriteLine("AttackCall: " + BitConverter.ToString(AttackCall));
+                            var AttackCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(AttackCall);
+                            serverStream.Write(AttackCallEncrypt, 0, 7);
+                            serverStream.Flush();
+                            pauseClientToServerThread.Set();
+                        }
+                        hitcheck = false;
+                    }
+                }
+
+                                if (InfoShutdown < 15)
+                                {
+                                    pauseClientToServerThread.Reset();
+                                    byte[] InfoCall = new byte[11];
+                                    StoreRecvArray(decryptedpacket); //전체 패킷을 복사
+                                    byte clientpacketnum = MemoryClass.ReadMemoryValue(0x5F8E90);
+                                    MemoryClass.ModifyMemoryValue(clientpacketnum);
+                                    InfoCall[0] = 0xAA; InfoCall[1] = 0x00; InfoCall[2] = 0x08; InfoCall[3] = 0x43; InfoCall[4] = clientpacketnum; InfoCall[5] = 0x01; InfoCall[6] = decryptedpacket[10]; InfoCall[7] = decryptedpacket[11]; InfoCall[8] = decryptedpacket[12]; InfoCall[9] = decryptedpacket[13]; InfoCall[10] = 0x00;
+                                    var InfoCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(InfoCall);
+                                    serverStream.Write(InfoCallEncrypt, 0, 11);
+                                    serverStream.Flush();
+                                    pauseClientToServerThread.Set();
+                                }
+                                else
+                                {
+                                    if (decryptedpacket[16] == 0x02)
+                                    {
+                                        packet[16] ^= 0x05 ^ 0x02; // 투명을 반투명으로 변환
+                                    }
+                                    if (decryptedpacket[60] == 00) // 문파원 동맹 외 이름색깔 적문으로 변경
+                                    {
+                                        packet[60] ^= 0x01;
+                                    }
+                                }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*/
