@@ -30,13 +30,14 @@ namespace GookbabNormalize
         static int bantandelay = 0; //반탄공 딜레이
         static int autoexpsell = 0; //경변 자동체크
         static uint[] EnemyTargetarray = new uint[128]; //적 캐릭터 타겟 저장
-        static uint[] MobTargetarray = new uint[64]; //몹 타겟 저장
+        static uint[] MobTargetarray = new uint[128]; //몹 타겟 저장
         static bool dispelcheck = false; //무력화 체크용 변수
         static bool simtucheck = false; //심투 활성화 여부 체크
         static bool autotal = false; //자동탈 활성화 여부 체크
         static bool autohell = false; //자동헬 활성화 여부 체크
         static bool autobantan = false; //자동반탄 활성화 여부 체크
         static bool autostarfall = false; //자동공격 활성화 여부 체크
+        static bool autocurse = false; //자동저주 활성화 여부 체크
         static bool resetcheck = false; //캐릭터 첫 접속시 체크 스킬키 초기화 확인용
         static bool startcheck = false; //첫 접속체크
         static bool expsell = false; //자동경팔 작동 체크
@@ -65,7 +66,6 @@ namespace GookbabNormalize
         static byte[,] ChaPacketarray = new byte[76,16]; //화면내 캐릭터정보 패킷 저장
         private static ManualResetEvent pauseClientToServerThread = new ManualResetEvent(true); // 서버 패킷 처리중 클라이언트 패킷 보내야할때 쓰레드 일시정지 용도
         private static ManualResetEvent pauseServerToClientThread = new ManualResetEvent(true); // 클라이언트 패킷 처리 쓰레드 일시정지용
-        private static ManualResetEvent pauseAutoMagicThread = new ManualResetEvent(true);
         private static DateTime lastProcessedTime = DateTime.MinValue; //헬파이어 딜레이 체크
         private static DateTime lastProcessedTime2 = DateTime.MinValue; //만공 딜레이 체크
         //private static readonly Stopwatch timer = Stopwatch.StartNew(); //캐릭터 정보 받아오는 딜레이
@@ -141,6 +141,7 @@ namespace GookbabNormalize
                 resetcheck = true;
                 varinitialize();
                 MemoryClass.DecryptArraycreate();
+                Console.WriteLine("portchange 2");
             }
             server = new TcpClient("baramgukbab.kro.kr", portnum);
             serverStream = server.GetStream();
@@ -183,13 +184,6 @@ namespace GookbabNormalize
             {
                 pauseServerToClientThread.WaitOne(); // 일시정지 상태가 해제될 때까지 대기
                 // Server to Client 데이터 처리 로직
-            }
-        }
-        private static void AutoMagicThreadMethod() //자동공격 쓰레드 일시정지용
-        {
-            while (true)
-            {
-                pauseAutoMagicThread.WaitOne(); // 일시정지 상태가 해제될 때까지 대기
             }
         }
         static uint ConvertBytesToUInt32BigEndian(byte[] bytes) //byte값 uint로 변환하는 함수
@@ -244,6 +238,7 @@ namespace GookbabNormalize
                 dispelcheck = false;
                 startcheck = false;
                 autostarfall = false;
+                autocurse = false;
                 expsell = false;
             }
        }
@@ -300,7 +295,7 @@ namespace GookbabNormalize
         }
         static void MagicCast(byte MagicKey, byte[] TargetArray, int MagicType = 0)
         {
-            pauseClientToServerThread.Reset();           
+            //pauseClientToServerThread.Reset();
             byte clientpacketnum = MemoryClass.ReadMemoryValue(0x5F8E90);
             MemoryClass.ModifyMemoryValue(clientpacketnum);
             byte[] MagicCall = new byte[15] 
@@ -311,7 +306,7 @@ namespace GookbabNormalize
             var MagicCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(MagicCall);
             serverStream.Write(MagicCallEncrypt, 0, 15);
             serverStream.Flush();
-            pauseClientToServerThread.Set();
+            //pauseClientToServerThread.Set();
         }
         public static void NoticeCall(string inputString)
         {
@@ -369,25 +364,56 @@ namespace GookbabNormalize
             }
             Console.WriteLine("쓰레드 종료");
         }
-        public static void AutoCast(byte MagicKey, byte[] TargetArray) //마비 저주 걸렸을떄 자동해제
+        public static void AutoCast() //마비 저주 걸렸을떄 자동해제
         {
             Task.Run(async () =>
             {
-                for (int i = 0; i < 2; i++)
+                for (int i = 0; i < 5; i++)
                 {
                     if (cursecheck == true)
                     {
-                        MagicCast(anticursekey, TargetArray);
-                        await Task.Delay(200);
+                        MagicCast(anticursekey, mytargetnum);
+                        await Task.Delay(100);
                     }
-                    MagicCast(MagicKey, TargetArray);
-                    await Task.Delay(200); // 0.25초 지연
+                    if (paralcheck == true)
+                    {
+                        MagicCast(antiparalkey, mytargetnum);
+                        await Task.Delay(100); // 0.1초 지연
+                    }
+                }
+                paralcheck = false;
+            });
+        }
+        public static void AutoCurseCast() //저주 / 혼마술 자동시전
+        {
+            Task.Run(async () =>
+            {
+                int i = 0;
+                while(true)
+                {
+                    if (autocurse == true && MobTargetNum > 0)
+                    {
+                        byte[] Targetarray = ConvertUInt32ToBytesBigEndian(MobTargetarray[i]);
+                        MagicCast(cursekey,Targetarray);
+                        if (i < MobTargetNum)
+                        {
+                            i++;
+                        }
+                        else
+                        {
+                            i = 0;
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
+                    await Task.Delay(200); // 0.1초 지연
                 }
             });
         }
         public static void NPCselect(byte k)
         {
-            pauseClientToServerThread.Reset();
             byte clientpacketnum = MemoryClass.ReadMemoryValue(0x5F8E90);
             MemoryClass.ModifyMemoryValue(clientpacketnum);
             byte[] NPCCall = new byte[17]
@@ -397,7 +423,6 @@ namespace GookbabNormalize
             var NPCCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(NPCCall);
             serverStream.Write(NPCCallEncrypt, 0, 17);
             serverStream.Flush();
-            pauseClientToServerThread.Set();
         }
         private static async void ModifyPacket(byte[] packet, int length, NetworkStream outputStream)
         {
@@ -426,6 +451,7 @@ namespace GookbabNormalize
                         packet[8] = portarray[2];
                         packet[9] = portarray[3];
                         portchange = 1;
+                        Console.WriteLine("portchange 1");
                     }
                 }
                 else if (length > 0 && packet[3] == 0x05) //내 타겟넘버 받아오는 용도
@@ -443,23 +469,18 @@ namespace GookbabNormalize
                 }
                 else if (length > 0 && packet[3] == 0x07) //화면내 몹 정보
                 {
-                    if (autostarfall == true)
+                    var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                    if (MobTargetNum < 63)
                     {
-                        pauseAutoMagicThread.Reset();   
-                        var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
-                        if (MobTargetNum < 63)
+                        byte[] targetarray = new byte[4];
+                        for (int i = 0; i < 4; i++)
                         {
-                            byte[] targetarray = new byte[4];
-                            for (int i = 0; i < 4; i++)
-                            {
-                                targetarray[i] = decryptedpacket[12+i];
-                            }
-                            MobTargetarray[MobTargetNum] = ConvertBytesToUInt32BigEndian(targetarray);
-                            MobXarray[MobTargetNum] = decryptedpacket[6];
-                            MobXarray[MobTargetNum] = decryptedpacket[8];
-                            MobTargetNum++;
+                            targetarray[i] = decryptedpacket[12+i];
                         }
-                        pauseAutoMagicThread.Set();
+                        MobTargetarray[MobTargetNum] = ConvertBytesToUInt32BigEndian(targetarray);
+                        MobXarray[MobTargetNum] = decryptedpacket[6];
+                        MobXarray[MobTargetNum] = decryptedpacket[8];
+                        MobTargetNum++;
                     }
                 }
                 else if (length > 0 && packet[3] == 0x08) // 절망/경험치변동
@@ -477,7 +498,6 @@ namespace GookbabNormalize
                         var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
                         if (decryptedpacket[5] == 0x10 && decryptedpacket[6] >= 0xEF && autoexpsell > 0)
                         {
-                            pauseClientToServerThread.Reset();
                             byte clientpacketnum = MemoryClass.ReadMemoryValue(0x5F8E90);
                             MemoryClass.ModifyMemoryValue(clientpacketnum);
                             byte[] ItemCall = new byte[7]
@@ -487,7 +507,6 @@ namespace GookbabNormalize
                             var ItemCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(ItemCall);
                             serverStream.Write(ItemCallEncrypt, 0, 7);
                             serverStream.Flush();
-                            pauseClientToServerThread.Set();
                             expsell = true;
                             Console.WriteLine("경변시작");
                         }
@@ -536,10 +555,8 @@ namespace GookbabNormalize
                         {
                             if (targetvalue == MobTargetarray[i])
                             {
-                                pauseAutoMagicThread.Reset(); 
                                 MobXarray[i] = decryptedpacket[10];
                                 MobYarray[i] = decryptedpacket[12];
-                                pauseAutoMagicThread.Set(); 
                             }
                         }
                     }
@@ -598,7 +615,6 @@ namespace GookbabNormalize
                         {
                             if (targetvalue == MobTargetarray[i])
                             {
-                                pauseAutoMagicThread.Reset();
                                 if (i != MobTargetNum - 1)
                                 {
                                     MobTargetarray[i] = MobTargetarray[MobTargetNum-1];
@@ -610,7 +626,6 @@ namespace GookbabNormalize
                                 }
                                 MobTargetNum--;
                                 Console.WriteLine($"MobTargetNum : {MobTargetNum}");
-                                pauseAutoMagicThread.Set();
                             }
                         }
                     }
@@ -775,10 +790,8 @@ namespace GookbabNormalize
                 else if (length > 0 && packet[3] == 0x26) //내 캐릭터 좌표이동
                 {
                     var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
-                    pauseAutoMagicThread.Reset();
                     myXvalue = decryptedpacket[11];
                     myYvalue = decryptedpacket[13];
-                    pauseAutoMagicThread.Set();
                 }
                 else if (length > 0 && packet[3] == 0x29) //마법 이펙트 포탈 포함
                 {
@@ -1006,7 +1019,6 @@ namespace GookbabNormalize
                 }
                 else if (length > 0 && packet[3] == 0x3A) //버프 디버프류 들어올때
                 {
-                    
                     if (length >= 17 && length <= 19)
                     {
                         var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
@@ -1016,7 +1028,7 @@ namespace GookbabNormalize
                             {
                                 if (paralcheck == false)
                                 {
-                                    AutoCast(antiparalkey,mytargetnum);
+                                    AutoCast();
                                     paralcheck = true;
                                 }
                             }
@@ -1030,7 +1042,6 @@ namespace GookbabNormalize
                         {
                             if (decryptedpacket[17] > 0x00)
                             {
-                                //AutoCast(anticursekey,mytargetnum);
                                 cursecheck = true;
                             }
                             else
@@ -1062,7 +1073,19 @@ namespace GookbabNormalize
             }
             else //클라이언트 패킷
             {
-                if (length > 0 && packet[3] == 0x0E)
+                if (length > 0 && packet[3] == 0x0B)
+                {
+                    if (packet[1] == 0x00 && packet[2] == 0x03) //종료시 서버로 보내는 패킷
+                    {
+                        var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet); // Client Packet: AA-00-03-0B-D5-00
+                        if (decryptedpacket[5] == 0x00)
+                        {
+                            portchange = 0;
+                            Console.WriteLine("portchange 0");
+                        }
+                    }
+                }
+                else if (length > 0 && packet[3] == 0x0E) //채팅
                 {
                     var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
                     if (decryptedpacket[7] == 0x2F)
@@ -1127,6 +1150,20 @@ namespace GookbabNormalize
                                     NoticeCall("자동반탄 비활성화");
                                 }
                             }
+                            else if ((decryptedpacket[12] == 0xC0 && decryptedpacket[13] == 0xF4) || (decryptedpacket[12] == 0xA4 && decryptedpacket[13] == 0xB8)) //자동반탄
+                            { // /자동저 /ㅈㄷㅈ
+                                if (autocurse == false)
+                                {
+                                    autocurse = true;
+                                    AutoCurseCast();
+                                    NoticeCall("자동저주 활성화");
+                                }
+                                else
+                                {
+                                    autocurse = false;
+                                    NoticeCall("자동저주 비활성화");
+                                }
+                            }
                             /*
                             else if ((decryptedpacket[12] == 0xB0 && decryptedpacket[13] == 0xF8) || (decryptedpacket[12] == 0xA4 && decryptedpacket[13] == 0xA1)) //자동공격
                             {
@@ -1178,8 +1215,6 @@ namespace GookbabNormalize
                         }
                         else if (((decryptedpacket[8] == 0xC1 && decryptedpacket[9] == 0xB6 && decryptedpacket[10] == 0xC7 && decryptedpacket[11] == 0xD5) || (decryptedpacket[8] == 0xA4 && decryptedpacket[9] == 0xB8 && decryptedpacket[10] == 0xA4 && decryptedpacket[11] == 0xBE)) && decryptedpacket[12] == 0x20)
                         { // /조합 /ㅈㅎ
-                            Array.Clear(packet, 0, length);
-                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[5] = 0x00; packet[6] = 0x00; length = 7;
                             if (decryptedpacket[6] >= 8)
                             {
                                 bool arraycheck = false;
@@ -1188,17 +1223,17 @@ namespace GookbabNormalize
                                 {
                                     if (arraycheck == false && (decryptedpacket[6] % 2) != 1)
                                     {
-                                        if (decryptedpacket[i + 13] > 0x60 && decryptedpacket[i + 13] < 0x7B)
+                                        if (decryptedpacket[i * 2 + 13] > 0x60 && decryptedpacket[i * 2 + 13] < 0x7B)
                                         {
-                                            CraftCall[i + 7] = (byte)(decryptedpacket[i + 13] - 0x60);
+                                            CraftCall[i * 2 + 7] = (byte)(decryptedpacket[i * 2 + 13] - 0x60);
                                         }
                                         else
                                         {
                                             arraycheck = true;
                                         }
-                                        if (decryptedpacket[i + 14] > 0x30 && decryptedpacket[i + 14] < 0x3A)
+                                        if (decryptedpacket[i * 2 + 14] > 0x30 && decryptedpacket[i * 2 + 14] < 0x3A)
                                         {
-                                            CraftCall[i + 8] = (byte)(decryptedpacket[i + 14] - 0x30);
+                                            CraftCall[i * 2 + 8] = (byte)(decryptedpacket[i * 2 + 14] - 0x30);
                                         }
                                         else
                                         {
@@ -1213,16 +1248,21 @@ namespace GookbabNormalize
                                 }
                                 if (arraycheck == false)
                                 {
+                                    Array.Clear(packet, 0, length);
                                     CraftCall[0] = 0xAA; CraftCall[1] = 0x00; CraftCall[2] = (byte)(decryptedpacket[6] - 1); CraftCall[3] = 0x6B; CraftCall[4] = decryptedpacket[4]; CraftCall[5] = 0x00; CraftCall[6] = (byte)((decryptedpacket[6] - 6)/2); 
                                     var CraftCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(CraftCall);
-                                    serverStream.Write(CraftCallEncrypt, 0, decryptedpacket[6] + 2);
-                                    MemoryClass.ModifyMemoryValue((byte)(decryptedpacket[4]+1));
-                                    packet[4] = (byte)(decryptedpacket[4] + 1);
+                                    for (int i = 0; i < decryptedpacket[6] + 2; i++)
+                                    {
+                                        packet[i] = CraftCallEncrypt[i];
+                                    }
+                                    length = decryptedpacket[6] + 2;
+                                    Console.WriteLine("craftcall: " + BitConverter.ToString(CraftCall));
                                     NoticeCall("조합을 시도합니다");
                                 }
                                 else
                                 {
-                                    packet[4] = (byte)(decryptedpacket[4]);
+                                    Array.Clear(packet, 0, length);
+                                    packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[4] = decryptedpacket[4]; packet[5] = 0x00; packet[6] = 0x00; length = 7;
                                     NoticeCall("명령어가 올바르지 않습니다");
                                 }
 
