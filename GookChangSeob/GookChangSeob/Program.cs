@@ -1390,8 +1390,10 @@ namespace GookbabNormalize
                 Array.Copy(combinedBuffer, currentIndex, packet, 0, packetLength + 3); // 전체 패킷을 복사
 
                 // 새로운 스레드에서 복호화 처리
+                /*
                 Thread decryptThread = new Thread(() => ProcessDecryptedPacket(packet, OutputStream));
                 decryptThread.Start();
+                */
 
                 // 패킷 수정 및 전송
                 ModifyPacket(packet, packet.Length, OutputStream);
