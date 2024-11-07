@@ -435,7 +435,7 @@ namespace GookbabNormalize
                 else if (length > 0 && packet[3] == 0x0A) //시스템 메세지
                 {
                     if (killlogshutdown == true)
-                    { //5B C1 A4 BA B8 5D
+                    {
                         var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
                         if (length > 15 && decryptedpacket[5] == 0x05 && decryptedpacket[8] == 0x5B && decryptedpacket[9] == 0xC1 && decryptedpacket[10] == 0xA4 && decryptedpacket[11] == 0xBA && decryptedpacket[12] == 0xB8 && decryptedpacket[13] == 0x5D)
                         {
@@ -707,6 +707,7 @@ namespace GookbabNormalize
                     if (simtucheck == true)
                     {
                         var decryptedpacket = MemoryClass.PacketDecryptor.DecryptPacket(packet);
+                        bool enemycheck = false;
                         int targetcheck = 0;
                         int mynamecheck = 0;
                         for (int i = 0; i < 4; i++)
@@ -719,8 +720,6 @@ namespace GookbabNormalize
                             {
                                 break;
                             }
-                            Console.WriteLine($"targetnumsave : {targetnumsave[i]}");
-                            Console.WriteLine($"decryptedpacket : {decryptedpacket[10+i]}");
                         }
                         for (int i = 0; i < 4; i++)
                         {
@@ -739,94 +738,50 @@ namespace GookbabNormalize
                         }
                         else
                         {
+                            if (packet[1] == 0x00 && packet[2] >= 0x3D) //변신 안한상태
+                            {
+                                if (decryptedpacket[60] == 00)
+                                {
+                                    packet[60] ^= 0x01;
+                                    if (decryptedpacket[16] == 0x02)
+                                    {
+                                        packet[16] ^= 0x05 ^ 0x02; // 투명을 반투명으로 변환
+                                    }
+                                    enemycheck = true;
+                                }
+                                else
+                                {
+                                    if (decryptedpacket[16] == 0x05)
+                                    {
+                                        packet[16] ^= 0x05; // 반투명을 일반상태로 변환
+                                    }
+                                }
+                            }
+                            else //변신상태
+                            {
+                                if (decryptedpacket[21] == 00) // 문파원 동맹 외 이름색깔 적문으로 변경
+                                {
+                                    packet[21] ^= 0x01;
+                                    enemycheck = true;
+                                }
+                            }
                             if (targetcheck != 4)
                             {
                                 for (int i = 0; i < 4; i++)
                                 {
                                     targetnumsave[i] = decryptedpacket[10+i];
                                 }
-                                if (packet[1] == 0x00 && packet[2] > 0x3D) //이름 받아오는 경우
+                                if (EnemyTargetNum < 127 && enemycheck == true)
                                 {
-                                    if (decryptedpacket[60] == 00)
+                                    byte[] savetargetarray = new byte[4]; // 타겟넘버 저장할 배열 생성
+                                    for (int i = 0; i < 4; i++)
                                     {
-                                        packet[60] ^= 0x01;
-                                        if (mynamecheck < 4)
-                                        {
-                                            if (EnemyTargetNum < 127)
-                                            {
-                                                byte[] savetargetarray = new byte[4]; // 타겟넘버 저장할 배열 생성
-                                                for (int i = 0; i < 4; i++)
-                                                {
-                                                    savetargetarray[i] = decryptedpacket[10+i];
-                                                }
-                                                uint targetvalue = ConvertBytesToUInt32BigEndian(savetargetarray);
-                                                EnemyTargetarray[EnemyTargetNum] = targetvalue;
-                                                EnemyTargetNum++;
-                                                Console.WriteLine($"save enemytarget : {targetvalue}");
-                                                Console.WriteLine($"EnemyTargetNum : {EnemyTargetNum}");
-                                            }
-                                        }
-                                        else
-                                        {
-                                            EnemyTargetNum = 0;
-                                            for (int i = 0; i < 64; i++)
-                                            {
-                                                EnemyTargetarray[i] = 0;
-                                            }
-                                        }
+                                        savetargetarray[i] = decryptedpacket[10+i];
                                     }
-                                    else
-                                    {
-                                        if (decryptedpacket[16] == 0x05)
-                                        {
-                                            packet[16] ^= 0x05;
-                                        }
-                                    }
-                                }
-                                else if (packet[1] == 0x00 && packet[2] == 0x3D)// 화면내 캐릭터의 닉네임을 받아오지 못하면 캐릭터 상세정보를 받아옴
-                                {
-                                    // if infoshutdown < 15
-                                    if (decryptedpacket[16] == 0x02)
-                                    {
-                                        packet[16] ^= 0x05 ^ 0x02; // 투명을 반투명으로 변환
-                                    }
-                                    if (decryptedpacket[60] == 00) // 문파원 동맹 외 이름색깔 적문으로 변경
-                                    {
-                                        packet[60] ^= 0x01;
-                                    }
-                                    if (EnemyTargetNum < 127)
-                                    {
-                                        byte[] savetargetarray = new byte[4]; // 타겟넘버 저장할 배열 생성
-                                        for (int i = 0; i < 4; i++)
-                                        {
-                                            savetargetarray[i] = decryptedpacket[10+i];
-                                        }
-                                        uint targetvalue = ConvertBytesToUInt32BigEndian(savetargetarray);
-                                        EnemyTargetarray[EnemyTargetNum] = targetvalue;
-                                        EnemyTargetNum++;
-                                        Console.WriteLine($"save enemytarget : {targetvalue}");
-                                        Console.WriteLine($"EnemyTargetNum : {EnemyTargetNum}");
-                                    }
-                                }
-                                else // 변신상태
-                                {
-                                    if (decryptedpacket[21] == 00) // 문파원 동맹 외 이름색깔 적문으로 변경
-                                    {
-                                        packet[21] ^= 0x01;
-                                    }
-                                    if (EnemyTargetNum < 127)
-                                    {
-                                        byte[] savetargetarray = new byte[4]; // 타겟넘버 저장할 배열 생성
-                                        for (int i = 0; i < 4; i++)
-                                        {
-                                            savetargetarray[i] = decryptedpacket[10+i];
-                                        }
-                                        uint targetvalue = ConvertBytesToUInt32BigEndian(savetargetarray);
-                                        EnemyTargetarray[EnemyTargetNum] = targetvalue;
-                                        EnemyTargetNum++;
-                                        Console.WriteLine($"save enemytarget : {targetvalue}");
-                                        Console.WriteLine($"EnemyTargetNum : {EnemyTargetNum}");
-                                    }
+                                    uint targetvalue = ConvertBytesToUInt32BigEndian(savetargetarray);
+                                    EnemyTargetarray[EnemyTargetNum] = targetvalue;
+                                    EnemyTargetNum++;
+                                    Console.WriteLine($"EnemyTargetNum : {EnemyTargetNum}");
                                 }
                             }
                         }
