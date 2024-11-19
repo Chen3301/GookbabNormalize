@@ -8,26 +8,24 @@
     "net8.0": []
   },
   "packageFolders": {
-    "C:\\Users\\ssh\\.nuget\\packages\\": {}
+    "C:\\Users\\sonsang\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\ssh\\gookbab\\GookbabNormalize-2\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
+      "projectUniqueName": "D:\\Source\\GookbabNormalize\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
       "projectName": "GookChangSeob",
-      "projectPath": "C:\\Users\\ssh\\gookbab\\GookbabNormalize-2\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
-      "packagesPath": "C:\\Users\\ssh\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\ssh\\gookbab\\GookbabNormalize-2\\GookChangSeob\\GookChangSeob\\obj\\",
+      "projectPath": "D:\\Source\\GookbabNormalize\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
+      "packagesPath": "C:\\Users\\sonsang\\.nuget\\packages\\",
+      "outputPath": "D:\\Source\\GookbabNormalize\\GookChangSeob\\GookChangSeob\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\ssh\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        "C:\\Users\\sonsang\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
       ],
       "sources": {
-        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -66,7 +64,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.400/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.403/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

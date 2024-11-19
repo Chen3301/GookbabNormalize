@@ -214,6 +214,10 @@ namespace GookbabNormalize
                 expsell = false;
             }
        }
+       static void ClientPacketSend()
+       {
+            //일단 테스트용
+       }
         private static void ForwardTraffic(NetworkStream inputStream, NetworkStream outputStream, string direction) // 네트워크 스트림에서 데이터를 주고받을 때의 로직
         {
             byte[] buffer = new byte[60000]; // 버퍼 크기
