@@ -218,7 +218,7 @@ namespace GookbabNormalize
             }
        }
         private static readonly object packetLock = new object();
-        static void ClientPacketSend(byte[] packetarray)
+        static void ClientPacketSend(byte[] packetarray, int length)
         {
             lock (packetLock) // 패킷 검증 및 수정에 대한 동기화
             {
@@ -231,7 +231,7 @@ namespace GookbabNormalize
                     }
                     else
                     {
-                        if (packetarray[4] != ClientPacketNumber + 1)
+                        if (packetarray[4] != (byte)(ClientPacketNumber + 1))
                         {
                             packetarray = MemoryClass.PacketDecryptor.DecryptPacket(packetarray);
                             packetarray[4] = (byte)(ClientPacketNumber + 1);
@@ -242,8 +242,8 @@ namespace GookbabNormalize
                     }
                 }
             }
-            //Console.WriteLine("packetarray: " + BitConverter.ToString(packetarray));
-            serverStream.Write(packetarray, 0, packetarray.Length);
+            Console.WriteLine("packetarray: " + BitConverter.ToString(packetarray));
+            serverStream.Write(packetarray, 0, length);
             serverStream.Flush();
         }
         private static void ForwardTraffic(NetworkStream inputStream, NetworkStream outputStream, string direction) // 네트워크 스트림에서 데이터를 주고받을 때의 로직
@@ -311,7 +311,7 @@ namespace GookbabNormalize
             };
             Console.WriteLine("MagicCall: " + BitConverter.ToString(MagicCall));
             var MagicCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(MagicCall);
-            ClientPacketSend(MagicCallEncrypt);
+            ClientPacketSend(MagicCallEncrypt,MagicCallEncrypt.Length);
             //serverStream.Write(MagicCallEncrypt, 0, 15);
             //serverStream.Flush();
         }
@@ -371,7 +371,7 @@ namespace GookbabNormalize
                 0xAA, 0x00, 0x0E, 0x3A, clientpacketnum, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01, k, 0x00
             };           
             var NPCCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(NPCCall);
-            ClientPacketSend(NPCCallEncrypt);
+            ClientPacketSend(NPCCallEncrypt,NPCCallEncrypt.Length);
             //serverStream.Write(NPCCallEncrypt, 0, 17);
             //serverStream.Flush();
         }
@@ -455,7 +455,7 @@ namespace GookbabNormalize
                                 0xAA, 0x00, 0x04, 0x1C, clientpacketnum, expsellkey, 0x00
                             };           
                             var ItemCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(ItemCall);
-                            ClientPacketSend(ItemCallEncrypt);
+                            ClientPacketSend(ItemCallEncrypt,ItemCallEncrypt.Length);
                             //serverStream.Write(ItemCallEncrypt, 0, 7);
                             //serverStream.Flush();
                             expsell = true;
@@ -907,7 +907,7 @@ namespace GookbabNormalize
                         if ((decryptedpacket[8] == 0xBD && decryptedpacket[9] == 0xC9 && decryptedpacket[10] == 0xC5 && decryptedpacket[11] == 0xF5) || (decryptedpacket[8] == 0xA4 && decryptedpacket[9] == 0xB5 && decryptedpacket[10] == 0xA4 && decryptedpacket[11] == 0xBC))
                         {
                             Array.Clear(packet, 0, length);
-                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[4] = decryptedpacket[4]; packet[5] = 0x00; packet[6] = 0x00; length = 7;
+                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0xFF; packet[4] = decryptedpacket[4]; length = 7;
                             if (simtucheck == false)
                             { 
                                 simtucheck = true;
@@ -923,7 +923,7 @@ namespace GookbabNormalize
                         else if ((decryptedpacket[8] == 0xC0 && decryptedpacket[9] == 0xDA && decryptedpacket[10] == 0xB5 && decryptedpacket[11] == 0xBF) || (decryptedpacket[8] == 0xA4 && decryptedpacket[9] == 0xB8 && decryptedpacket[10] == 0xA4 && decryptedpacket[11] == 0xA7))
                         {
                             Array.Clear(packet, 0, length);
-                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[4] = decryptedpacket[4]; packet[5] = 0x00; packet[6] = 0x00; length = 7;
+                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0xFF; packet[4] = decryptedpacket[4]; length = 7;
                             if ((decryptedpacket[12] == 0xC5 && decryptedpacket[13] == 0xBB) || (decryptedpacket[12] == 0xA4 && decryptedpacket[13] == 0xBC)) //자동탈
                             { // /자동탈 /ㅈㄷㅌ
                                 if (autotal == false)
@@ -987,7 +987,8 @@ namespace GookbabNormalize
                         }
                         else if ((decryptedpacket[8] == 0xB0 && decryptedpacket[9] == 0xE6 && decryptedpacket[10] == 0xBA && decryptedpacket[11] == 0xAF) || (decryptedpacket[8] == 0xA4 && decryptedpacket[9] == 0xA1 && decryptedpacket[10] == 0xA4 && decryptedpacket[11] == 0xB2))
                         { // /경변체 /경변마 /ㄱㅂㅊ /ㄱㅂㅁ
-                            packet[3] = 0xFF;
+                            Array.Clear(packet, 0, length);
+                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0xFF; packet[4] = decryptedpacket[4]; length = 7;
                             if ((decryptedpacket[12] == 0xC3 && decryptedpacket[13] == 0xBC) || (decryptedpacket[12] == 0xA4 && decryptedpacket[13] == 0xBA))
                             {
                                 if (autoexpsell != 1)
@@ -1064,7 +1065,7 @@ namespace GookbabNormalize
                                 else
                                 {
                                     Array.Clear(packet, 0, length);
-                                    packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[4] = decryptedpacket[4]; packet[5] = 0x00; packet[6] = 0x00; length = 7;
+                                    packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0xFF; packet[4] = decryptedpacket[4]; length = 7;
                                     NoticeCall("명령어가 올바르지 않습니다");
                                 }
                             }
@@ -1072,7 +1073,7 @@ namespace GookbabNormalize
                         else if (((decryptedpacket[8] == 0xC0 && decryptedpacket[9] == 0xCC && decryptedpacket[10] == 0xC6 && decryptedpacket[11] == 0xE5 && decryptedpacket[12] == 0xC6 && decryptedpacket[13] == 0xAE) || (decryptedpacket[8] == 0xA4 && decryptedpacket[9] == 0xB7 && decryptedpacket[10] == 0xA4 && decryptedpacket[11] == 0xBD && decryptedpacket[12] == 0xA4 && decryptedpacket[13] == 0xBC)) && decryptedpacket[14] == 0x20)
                         { // /이펙트 1 /이펙트 01 /이펙트 001 /이펙트 0001
                             Array.Clear(packet, 0, length);
-                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[4] = decryptedpacket[4]; packet[5] = 0x00; packet[6] = 0x00; length = 7;
+                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0xFF; packet[4] = decryptedpacket[4]; length = 7;
                             int result = 0;
                             if (decryptedpacket[6] == 0x09)
                             {
@@ -1116,7 +1117,7 @@ namespace GookbabNormalize
                         else if ((decryptedpacket[8] == 0xC2 && decryptedpacket[9] == 0xF7 && decryptedpacket[10] == 0xB4 && decryptedpacket[11] == 0xDC)||(decryptedpacket[8] == 0xA4 && decryptedpacket[9] == 0xBA && decryptedpacket[10] == 0xA4 && decryptedpacket[11] == 0xA7))
                         { // /차단 /ㅊㄷ
                             Array.Clear(packet, 0, length);
-                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[4] = decryptedpacket[4]; packet[5] = 0x00; packet[6] = 0x00; length = 7;
+                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0xFF; packet[4] = decryptedpacket[4]; length = 7;
                             if (killlogshutdown == false)
                             {
                                 killlogshutdown = true;
@@ -1211,7 +1212,7 @@ namespace GookbabNormalize
                 {
                     //Thread decryptThread = new Thread(() => ProcessDecryptedPacket(packet, OutputStream));
                     //decryptThread.Start();
-                    ClientPacketSend(packet);
+                    ClientPacketSend(packet, packet.Length);
                 }
                 //OutputStream.Write(packet, 0, packet.Length);
                 //OutputStream.Flush();
@@ -1489,7 +1490,6 @@ namespace GookbabNormalize
                         decryptedData[i] ^= Array1[packetData[4]];
                     }
                 }
-
                 return decryptedData;
             }
         }
