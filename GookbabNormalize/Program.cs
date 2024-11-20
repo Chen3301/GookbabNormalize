@@ -222,6 +222,7 @@ namespace GookbabNormalize
         {
             lock (packetLock) // 패킷 검증 및 수정에 대한 동기화
             {
+                Console.WriteLine("packetarray before: " + BitConverter.ToString(packetarray));
                 if (portchange == 2)
                 {
                     if (packetcheck == false)
@@ -231,18 +232,18 @@ namespace GookbabNormalize
                     }
                     else
                     {
-                        if (packetarray[4] != (byte)(ClientPacketNumber + 1))
+                        if (packetarray[4] != ClientPacketNumber)
                         {
                             packetarray = MemoryClass.PacketDecryptor.DecryptPacket(packetarray);
-                            packetarray[4] = (byte)(ClientPacketNumber + 1);
+                            packetarray[4] = ClientPacketNumber;
                             packetarray = MemoryClass.PacketDecryptor.DecryptPacket(packetarray);
                             MemoryClass.ModifyMemoryValue(ClientPacketNumber);
-                            ClientPacketNumber++;
                         }
+                        ClientPacketNumber++;
                     }
                 }
             }
-            Console.WriteLine("packetarray: " + BitConverter.ToString(packetarray));
+            Console.WriteLine("packetarray after: " + BitConverter.ToString(packetarray));
             serverStream.Write(packetarray, 0, length);
             serverStream.Flush();
         }
