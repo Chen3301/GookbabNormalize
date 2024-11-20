@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Source\\GookbabNormalize\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj": {}
+    "D:\\Source\\GookbabNormalize\\GookbabNormalize.csproj": {}
   },
   "projects": {
-    "D:\\Source\\GookbabNormalize\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj": {
+    "D:\\Source\\GookbabNormalize\\GookbabNormalize.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Source\\GookbabNormalize\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
-        "projectName": "GookChangSeob",
-        "projectPath": "D:\\Source\\GookbabNormalize\\GookChangSeob\\GookChangSeob\\GookChangSeob.csproj",
+        "projectUniqueName": "D:\\Source\\GookbabNormalize\\GookbabNormalize.csproj",
+        "projectName": "GookbabNormalize",
+        "projectPath": "D:\\Source\\GookbabNormalize\\GookbabNormalize.csproj",
         "packagesPath": "C:\\Users\\sonsang\\.nuget\\packages\\",
-        "outputPath": "D:\\Source\\GookbabNormalize\\GookChangSeob\\GookChangSeob\\obj\\",
+        "outputPath": "D:\\Source\\GookbabNormalize\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\sonsang\\AppData\\Roaming\\NuGet\\NuGet.Config"

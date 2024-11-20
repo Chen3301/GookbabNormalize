@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/GookChangSeob/GookChangSeob/GookChangSeob.csproj"
+                "${workspaceFolder}/GookbabNormalize/GookbabNormalize.csproj"
             ],
             "problemMatcher": "$msCompile",
             "group": {

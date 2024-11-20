@@ -1,0 +1,14 @@
+d:\Source\GookbabNormalize\bin\Debug\net8.0\GookbabNormalize.exe
+d:\Source\GookbabNormalize\bin\Debug\net8.0\GookbabNormalize.deps.json
+d:\Source\GookbabNormalize\bin\Debug\net8.0\GookbabNormalize.runtimeconfig.json
+d:\Source\GookbabNormalize\bin\Debug\net8.0\GookbabNormalize.dll
+d:\Source\GookbabNormalize\bin\Debug\net8.0\GookbabNormalize.pdb
+d:\Source\GookbabNormalize\obj\Debug\net8.0\GookbabNormalize.GeneratedMSBuildEditorConfig.editorconfig
+d:\Source\GookbabNormalize\obj\Debug\net8.0\GookbabNormalize.AssemblyInfoInputs.cache
+d:\Source\GookbabNormalize\obj\Debug\net8.0\GookbabNormalize.AssemblyInfo.cs
+d:\Source\GookbabNormalize\obj\Debug\net8.0\GookbabNormalize.csproj.CoreCompileInputs.cache
+d:\Source\GookbabNormalize\obj\Debug\net8.0\GookbabNormalize.dll
+d:\Source\GookbabNormalize\obj\Debug\net8.0\refint\GookbabNormalize.dll
+d:\Source\GookbabNormalize\obj\Debug\net8.0\GookbabNormalize.pdb
+d:\Source\GookbabNormalize\obj\Debug\net8.0\GookbabNormalize.genruntimeconfig.cache
+d:\Source\GookbabNormalize\obj\Debug\net8.0\ref\GookbabNormalize.dll

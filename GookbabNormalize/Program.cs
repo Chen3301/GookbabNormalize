@@ -40,6 +40,7 @@ namespace GookbabNormalize
         static bool expsell = false; //자동경팔 작동 체크
         static bool paralcheck = false; //마비 해제 체크
         static bool cursecheck = false; //저주 해제 체크
+        static bool packetcheck = false; //클라이언트 패킷 검증 체크
         static byte talkey = 0; //탈명사식 키 번호
         static byte cursekey = 0; //저주 혼마류 키 번호
         static byte mangongkey = 0; //만공 키 번호
@@ -50,6 +51,7 @@ namespace GookbabNormalize
         static byte anticursekey = 0; //퇴마주 키
         static byte antiparalkey = 0; //활력 키
         static byte expsellkey = 0; //경변 키 번호
+        static byte ClientPacketNumber = 0; //클라이언트 패킷 검증번호
         static byte[] mytargetnum = new byte[4]; //내 타겟넘버 저장
         static byte[] dispeltarget = new byte[4]; //무력화 타겟 저장
         static byte[] helltarget = new byte[4]; //헬타겟 저장
@@ -212,11 +214,33 @@ namespace GookbabNormalize
                 dispelcheck = false;
                 startcheck = false;
                 expsell = false;
+                packetcheck = false;
             }
        }
-       static void ClientPacketSend()
+       static void ClientPacketSend(byte[] packetarray)
        {
-            //일단 테스트용
+            if (portchange == 2)
+            {
+                if (packetcheck == false)
+                {
+                    ClientPacketNumber = MemoryClass.ReadMemoryValue(0x5F8E90);
+                    packetcheck = true;
+                }
+                else
+                {
+                    if (packetarray[4] != ClientPacketNumber + 1)
+                    {
+                        packetarray = MemoryClass.PacketDecryptor.DecryptPacket(packetarray);
+                        packetarray[4] = (byte)(ClientPacketNumber + 1);
+                        packetarray = MemoryClass.PacketDecryptor.DecryptPacket(packetarray);
+                        MemoryClass.ModifyMemoryValue(ClientPacketNumber);
+                        ClientPacketNumber++;
+                    }
+                }
+            }
+            Console.WriteLine("packetarray: " + BitConverter.ToString(packetarray));
+            serverStream.Write(packetarray, 0, packetarray.Length);
+            serverStream.Flush();
        }
         private static void ForwardTraffic(NetworkStream inputStream, NetworkStream outputStream, string direction) // 네트워크 스트림에서 데이터를 주고받을 때의 로직
         {
@@ -241,6 +265,7 @@ namespace GookbabNormalize
                     catch (ObjectDisposedException disposedEx)
                     {
                         Console.WriteLine($"Error during {direction} transmission: {disposedEx.Message}");
+                        portchange = 0;
                         return; // 스트림이 닫혔으면 종료
                     }
                 }
@@ -279,8 +304,9 @@ namespace GookbabNormalize
             };
             Console.WriteLine("MagicCall: " + BitConverter.ToString(MagicCall));
             var MagicCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(MagicCall);
-            serverStream.Write(MagicCallEncrypt, 0, 15);
-            serverStream.Flush();
+            ClientPacketSend(MagicCallEncrypt);
+            //serverStream.Write(MagicCallEncrypt, 0, 15);
+            //serverStream.Flush();
         }
         public static void NoticeCall(string inputString, int NoticeType = 0)
         {
@@ -338,8 +364,9 @@ namespace GookbabNormalize
                 0xAA, 0x00, 0x0E, 0x3A, clientpacketnum, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01, k, 0x00
             };           
             var NPCCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(NPCCall);
-            serverStream.Write(NPCCallEncrypt, 0, 17);
-            serverStream.Flush();
+            ClientPacketSend(NPCCallEncrypt);
+            //serverStream.Write(NPCCallEncrypt, 0, 17);
+            //serverStream.Flush();
         }
         private static async void ModifyPacket(byte[] packet, int length, NetworkStream outputStream)
         {
@@ -421,8 +448,9 @@ namespace GookbabNormalize
                                 0xAA, 0x00, 0x04, 0x1C, clientpacketnum, expsellkey, 0x00
                             };           
                             var ItemCallEncrypt = MemoryClass.PacketDecryptor.DecryptPacket(ItemCall);
-                            serverStream.Write(ItemCallEncrypt, 0, 7);
-                            serverStream.Flush();
+                            ClientPacketSend(ItemCallEncrypt);
+                            //serverStream.Write(ItemCallEncrypt, 0, 7);
+                            //serverStream.Flush();
                             expsell = true;
                             Console.WriteLine("경변시작");
                         }
@@ -1164,8 +1192,17 @@ namespace GookbabNormalize
 
                 // 패킷 수정 및 전송
                 ModifyPacket(packet, packet.Length, OutputStream);
-                OutputStream.Write(packet, 0, packet.Length);
-                OutputStream.Flush();
+                if (OutputStream == clientStream)
+                {
+                    OutputStream.Write(packet, 0, packet.Length);
+                    OutputStream.Flush();
+                }
+                else
+                {
+                    ClientPacketSend(packet);
+                }
+                //OutputStream.Write(packet, 0, packet.Length);
+                //OutputStream.Flush();
 
                 // 다음 패킷으로 이동
                 currentIndex = packetEndIndex;
