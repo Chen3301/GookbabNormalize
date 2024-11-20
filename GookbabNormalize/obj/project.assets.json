@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\source\\GookbabNormalize\\GookbabNormalize.csproj",
+      "projectUniqueName": "D:\\Source\\GookbabNormalize\\gookbabnormalize\\GookbabNormalize.csproj",
       "projectName": "GookbabNormalize",
-      "projectPath": "D:\\source\\GookbabNormalize\\GookbabNormalize.csproj",
+      "projectPath": "D:\\Source\\GookbabNormalize\\gookbabnormalize\\GookbabNormalize.csproj",
       "packagesPath": "C:\\Users\\sonsang\\.nuget\\packages\\",
-      "outputPath": "D:\\source\\GookbabNormalize\\obj\\",
+      "outputPath": "D:\\Source\\GookbabNormalize\\gookbabnormalize\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\sonsang\\AppData\\Roaming\\NuGet\\NuGet.Config"

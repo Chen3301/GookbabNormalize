@@ -217,31 +217,35 @@ namespace GookbabNormalize
                 packetcheck = false;
             }
        }
-       static void ClientPacketSend(byte[] packetarray)
-       {
-            if (portchange == 2)
+        private static readonly object packetLock = new object();
+        static void ClientPacketSend(byte[] packetarray)
+        {
+            lock (packetLock) // 패킷 검증 및 수정에 대한 동기화
             {
-                if (packetcheck == false)
+                if (portchange == 2)
                 {
-                    ClientPacketNumber = MemoryClass.ReadMemoryValue(0x5F8E90);
-                    packetcheck = true;
-                }
-                else
-                {
-                    if (packetarray[4] != ClientPacketNumber + 1)
+                    if (packetcheck == false)
                     {
-                        packetarray = MemoryClass.PacketDecryptor.DecryptPacket(packetarray);
-                        packetarray[4] = (byte)(ClientPacketNumber + 1);
-                        packetarray = MemoryClass.PacketDecryptor.DecryptPacket(packetarray);
-                        MemoryClass.ModifyMemoryValue(ClientPacketNumber);
-                        ClientPacketNumber++;
+                        ClientPacketNumber = MemoryClass.ReadMemoryValue(0x5F8E90);
+                        packetcheck = true;
+                    }
+                    else
+                    {
+                        if (packetarray[4] != ClientPacketNumber + 1)
+                        {
+                            packetarray = MemoryClass.PacketDecryptor.DecryptPacket(packetarray);
+                            packetarray[4] = (byte)(ClientPacketNumber + 1);
+                            packetarray = MemoryClass.PacketDecryptor.DecryptPacket(packetarray);
+                            MemoryClass.ModifyMemoryValue(ClientPacketNumber);
+                            ClientPacketNumber++;
+                        }
                     }
                 }
             }
-            Console.WriteLine("packetarray: " + BitConverter.ToString(packetarray));
+            //Console.WriteLine("packetarray: " + BitConverter.ToString(packetarray));
             serverStream.Write(packetarray, 0, packetarray.Length);
             serverStream.Flush();
-       }
+        }
         private static void ForwardTraffic(NetworkStream inputStream, NetworkStream outputStream, string direction) // 네트워크 스트림에서 데이터를 주고받을 때의 로직
         {
             byte[] buffer = new byte[60000]; // 버퍼 크기
@@ -273,14 +277,17 @@ namespace GookbabNormalize
             catch (IOException ioEx)
             {
                 Console.WriteLine($"Error during {direction} transmission (I/O): {ioEx.Message}");
+                portchange = 0;
             }
             catch (SocketException sockEx)
             {
                 Console.WriteLine($"Error during {direction} transmission (Socket): {sockEx.Message}");
+                portchange = 0;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Unexpected error during {direction} transmission: {ex.Message}");
+                portchange = 0;
             }
         }
         static void StoreRecvArray(byte[] RecvArray)
@@ -828,11 +835,15 @@ namespace GookbabNormalize
                         {
                             if (decryptedpacket[15] > 0x00)
                             {
+                                /*
                                 if (paralcheck == false)
                                 {
                                     AutoCast();
                                     paralcheck = true;
                                 }
+                                */
+                                AutoCast();
+                                paralcheck = true;
                             }
                             else
                             {
@@ -976,8 +987,7 @@ namespace GookbabNormalize
                         }
                         else if ((decryptedpacket[8] == 0xB0 && decryptedpacket[9] == 0xE6 && decryptedpacket[10] == 0xBA && decryptedpacket[11] == 0xAF) || (decryptedpacket[8] == 0xA4 && decryptedpacket[9] == 0xA1 && decryptedpacket[10] == 0xA4 && decryptedpacket[11] == 0xB2))
                         { // /경변체 /경변마 /ㄱㅂㅊ /ㄱㅂㅁ
-                            Array.Clear(packet, 0, length);
-                            packet[0] = 0xAA; packet[1] = 0x00; packet[2] = 0x04; packet[3] = 0x77; packet[4] = decryptedpacket[4]; packet[5] = 0x00; packet[6] = 0x00; length = 7;
+                            packet[3] = 0xFF;
                             if ((decryptedpacket[12] == 0xC3 && decryptedpacket[13] == 0xBC) || (decryptedpacket[12] == 0xA4 && decryptedpacket[13] == 0xBA))
                             {
                                 if (autoexpsell != 1)
@@ -1199,6 +1209,8 @@ namespace GookbabNormalize
                 }
                 else
                 {
+                    //Thread decryptThread = new Thread(() => ProcessDecryptedPacket(packet, OutputStream));
+                    //decryptThread.Start();
                     ClientPacketSend(packet);
                 }
                 //OutputStream.Write(packet, 0, packet.Length);
@@ -1474,7 +1486,7 @@ namespace GookbabNormalize
                 {
                     for (int i = baseIndex; i <= endIndex && i < packetData.Length; i++)
                     {
-                        decryptedData[i] ^= (byte)(Array1[packetData[4]]);
+                        decryptedData[i] ^= Array1[packetData[4]];
                     }
                 }
 
