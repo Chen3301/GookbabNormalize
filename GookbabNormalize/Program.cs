@@ -361,6 +361,7 @@ namespace GookbabNormalize
                         await Task.Delay(100); // 0.1초 지연
                     }
                 }
+                paralcheck = false;
             });
         }
         public static void NPCselect(byte k)
@@ -459,8 +460,24 @@ namespace GookbabNormalize
                             ClientPacketSend(ItemCallEncrypt,ItemCallEncrypt.Length);
                             //serverStream.Write(ItemCallEncrypt, 0, 7);
                             //serverStream.Flush();
-                            expsell = true;
-                            Console.WriteLine("경변시작");
+                            if (expsell != true)
+                            {
+                                Console.WriteLine("경변시작");
+                                expsell = true;
+                                if (expsell == true)
+                                {
+                                    Task.Run(async () =>
+                                    {
+                                        NPCselect((byte)autoexpsell);
+                                        await Task.Delay(100); // 0.1초 지연
+                                        NPCselect(1);
+                                        expsell = false;
+                                        NoticeCall("경험치를 변환했습니다");
+                                    });
+                                }
+
+                            }
+
                         }
                     }
                     else if (packet[1] == 0x00 && packet[2] == 0x49)
@@ -729,6 +746,7 @@ namespace GookbabNormalize
                 {
                     if (autoexpsell > 0 && expsell == true)
                     {
+                        /*
                         if (packet[1] == 0x00 && packet[2] == 0x59)
                         {
                             NPCselect((byte)autoexpsell);
@@ -739,6 +757,7 @@ namespace GookbabNormalize
                             expsell = false;
                             NoticeCall("경험치를 변환했습니다");
                         }
+                        */
                         packet[3] = 0xFF;
                     }
                 }

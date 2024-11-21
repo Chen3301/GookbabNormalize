@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GookbabNormalize")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0e89296bb2027d22922778a7d41da93597892e95")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+254d861ec2e3ac00282a7fcd8a7fa39b883bc724")]
 [assembly: System.Reflection.AssemblyProductAttribute("GookbabNormalize")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GookbabNormalize")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
